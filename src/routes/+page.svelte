@@ -11,6 +11,7 @@
         GeoJSON,
         hoverStateFilter,
         LineLayer,
+        // eslint-disable-next-line no-unused-vars
         MapEvents,
         MapLibre,
         Marker,
@@ -57,10 +58,9 @@
     let disableTracking = true
     let disableMultipleGeolocation = false
     let disableDropTower = true
-    const buildTower = false
 
     // Extent of the map
-    let bounds = getMapBounds(markers)
+    let bounds = getMapBounds(towers)
 
     /**
      * Declaring a function
@@ -68,6 +68,7 @@
      * Functions declared in <script> can only be used in this component
      */
 
+    // eslint-disable-next-line no-unused-vars, unused-imports/no-unused-vars
     function addMarker(e, label, name) {
         markers = [
             ...markers,
@@ -84,7 +85,7 @@
             towers = [
                 ...towers,
                 {
-                    lngLat: { lng: t.coords.longitude, lat: t.coords.latitude },
+                    lngLat: t.lngLat,
                     label,
                     name,
                 },
@@ -135,7 +136,6 @@
     // Watch a position using Geolocation API if you need continuous updates
     let watchPosition = false
     let watchedPosition = {}
-    let currentPosition = {}
     let watchedMarker = {}
 
     /**
@@ -150,6 +150,7 @@
                 lat: watchedPosition.coords.latitude,
             },
         }
+
         count = 0
         // Whenever the watched position is updated, check if it is within 10 meters of any marker
         markers.forEach((marker) => {
@@ -273,7 +274,6 @@
                 watch={true}
                 on:position={(e) => {
                     watchedPosition = e.detail
-                    currentPosition = e.detail
                 }}
             />
 
@@ -283,7 +283,7 @@
         <div class="col-span-4 md:col-span-1 text-center">
             <h1 class="font-bold">Current markers around your location: {count}</h1>
 
-            Counts markers within 1000 meters of your location marker.
+            Counts markers within 10 meters of your location marker.
         </div>
 
         <div class="col-span-4 md:col-span-1 text-center">
@@ -293,7 +293,8 @@
                 class="btn btn-neutral"
                 disabled={disableDropTower}
                 on:click={() => {
-                    addTower(currentPosition, 'label', 'name')
+                    addTower(watchedMarker, 'label', 'name')
+                    console.log(towers)
                 }}
             >
                 Drop Tower
@@ -340,49 +341,10 @@
         </Control>
 
         <!-- A map event to add a marker when clicked -->
-        <MapEvents on:click={event => addMarker(event, 'Added', 'This is an added marker')} />
+        <!-- MapEvents on:click={event => addMarker(event, 'Added', 'This is an added marker')} / -->
 
         <!-- This is how GeoJSON datasets are rendered -->
         <!-- promoteId must be a unique ID field in properties of each feature -->
-
-        {#if buildTower}
-            <DefaultMarker lngLat={watchedMarker.lngLat}>
-                <Popup offset={[0, -10]}>
-                    <div class="text-lg font-bold">You</div>
-                </Popup>
-            </DefaultMarker>
-
-            <GeoJSON
-                id="towerBuffer"
-                data={getBuffer(watchedMarker.lngLat, 0.01)}
-            >
-                <FillLayer
-                    paint={{
-                        'fill-color': hoverStateFilter('red', 'orange'),
-                        'fill-opacity': 0.3,
-                    }}
-                    beforeLayerType="symbol"
-                    manageHoverState
-                >
-                    <Popup
-                        openOn="hover"
-                        let:data
-                    >
-                        {@const props = data?.properties}
-                        {#if props}
-                            <div class="flex flex-col gap-2">
-                                <p>100 meter range</p>
-                            </div>
-                        {/if}
-                    </Popup>
-                </FillLayer>
-                <LineLayer
-                    layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-                    paint={{ 'line-color': 'red', 'line-width': 5 }}
-                    beforeLayerType="symbol"
-                />
-            </GeoJSON>
-        {/if}
 
         {#if showGeoJSON}
             <GeoJSON
@@ -422,43 +384,6 @@
         <!-- For-each loop syntax -->
         <!-- markers is an object, lngLat, label, name are the fields in the object -->
         <!-- i is the index, () indicates the unique ID for each item, duplicate IDs will lead to errors -->
-        {#each towers as { lngLat, label, name }, i (i)}
-            <DefaultMarker lngLat={lngLat}>
-                <Popup offset={[0, -10]}>
-                    <div class="text-lg font-bold">{label}:  {name}</div>
-                </Popup>
-            </DefaultMarker>
-            <GeoJSON
-                id="towerBuffer{name}"
-                data={getBuffer(lngLat, 0.01)}
-            >
-                <FillLayer
-                    paint={{
-                        'fill-color': hoverStateFilter('red', 'orange'),
-                        'fill-opacity': 0.3,
-                    }}
-                    beforeLayerType="symbol"
-                    manageHoverState
-                >
-                    <Popup
-                        openOn="hover"
-                        let:data
-                    >
-                        {@const props = data?.properties}
-                        {#if props}
-                            <div class="flex flex-col gap-2">
-                                <p>100 meter range</p>
-                            </div>
-                        {/if}
-                    </Popup>
-                </FillLayer>
-                <LineLayer
-                    layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-                    paint={{ 'line-color': 'red', 'line-width': 5 }}
-                    beforeLayerType="symbol"
-                />
-            </GeoJSON>
-        {/each}
 
         {#each markers as { lngLat, label, name }, i (i)}
             <Marker
@@ -479,8 +404,46 @@
             </Marker>
         {/each}
 
+        {#each towers as { lngLat }, i (i)}
+            <Marker
+                {lngLat}
+                class="grid h-8 w-8 place-items-center rounded-full
+                    border border-white-200
+                    bg-orange-900 text-white shadow-2xl focus:outline-2 focus:outline-white"
+            >
+                <span>
+                    {i}
+                </span>
+                <Popup
+                    openOn="hover"
+                    offset={[0, -10]}>
+                    <div class="text-lg font-bold">Tower {i} Initialized</div>
+                </Popup>
+            </Marker>
+            <GeoJSON
+                id="towerBuffer{i}"
+                data={getBuffer(lngLat, 0.01)}
+            >
+                <FillLayer
+                    paint={{
+                        'fill-color': hoverStateFilter('red', 'orange'),
+                        'fill-opacity': 0.3,
+                    }}
+                    beforeLayerType="symbol"
+                    manageHoverState
+                >
+                </FillLayer>
+                <LineLayer
+                    layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                    paint={{ 'line-color': 'red', 'line-width': 0.2 }}
+                    beforeLayerType="symbol"
+                />
+            </GeoJSON>
+        {/each}
+
         <!-- Display the watched position as a marker -->
         {#if watchedMarker.lngLat}
+
             <DefaultMarker lngLat={watchedMarker.lngLat}>
                 <Popup offset={[0, -10]}>
                     <div class="text-lg font-bold">You</div>
@@ -489,7 +452,7 @@
 
             <GeoJSON
                 id="watchedMarkerBuffer"
-                data={getBuffer(watchedMarker.lngLat, 0.01)}
+                data={getBuffer(watchedMarker.lngLat, 0.005)}
             >
                 <FillLayer
                     paint={{
@@ -517,8 +480,8 @@
                     beforeLayerType="symbol"
                 />
             </GeoJSON>
-
         {/if}
+
     </MapLibre>
 </div>
 
