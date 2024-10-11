@@ -69,6 +69,12 @@
         },
     ]
 
+    let countTowers = 5
+    let disableTracking = true
+    let disableMultipleGeolocation = false
+    let disableDropTower = true
+    const buildTower = false
+
     // Extent of the map
     let bounds = getMapBounds(markers)
 
@@ -90,14 +96,20 @@
     }
 
     function addTower(t, label, name) {
-        towers = [
-            ...towers,
-            {
-                lngLat: { lng: t.coords.longitude, lat: t.coords.latitude },
-                label,
-                name,
-            },
-        ]
+        if (countTowers !== 0) {
+            towers = [
+                ...towers,
+                {
+                    lngLat: { lng: t.coords.longitude, lat: t.coords.latitude },
+                    label,
+                    name,
+                },
+            ]
+            countTowers -= 1
+        }
+        else {
+            disableDropTower = true
+        }
     }
 
     // Geolocation API related
@@ -107,9 +119,6 @@
         maximumAge: 0, // milliseconds, 0 disables cached positions
     }
     let getPosition = false
-    let disableTracking = true
-    let disableMultipleGeolocation = false
-    let disableDropTower = true
     let success = false
     let error = ''
     let position = {}
@@ -260,7 +269,7 @@
 
         <!-- This section demonstrates how to get automatically updated user location -->
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Automatically updated position when moving</h1>
+            <h1 class="font-bold">Track position while moving</h1>
 
             <button
                 class="btn btn-neutral"
@@ -268,6 +277,7 @@
                 on:click={() => {
                     watchPosition = true
                     disableDropTower = false
+                    disableTracking = true
                 }}
             >
                 Track
@@ -303,7 +313,7 @@
         </div>
 
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Toggle Marker Placement</h1>
+            <h1 class="font-bold">Drop Towers. Remaining : {countTowers}</h1>
 
             <button
                 class="btn btn-neutral"
@@ -312,7 +322,7 @@
                     addTower(watchedPosition, 'label', 'name')
                 }}
             >
-                Toggle
+                Drop
             </button>
         </div>
 
