@@ -1,3 +1,5 @@
+import * as turf from '@turf/turf'
+
 /**
  * Compute map centre based on a list of markers
  * @param markers Map markers to compute the centre of
@@ -52,4 +54,22 @@ export function getDistance(markers) {
     const distance = R * c // in metres
 
     return distance
+}
+
+export function getRhumbDistance(markers) {
+    if (markers.length !== 2) {
+        throw new Error('This function requires exactly two markers')
+    }
+
+    const fromPoint = turf.point([markers[0].lngLat.lng, markers[0].lngLat.lat])
+    const toPoint = turf.point([markers[1].lngLat.lng, markers[1].lngLat.lat])
+    const options = { units: 'kilometers' }
+
+    return turf.rhumbDistance(fromPoint, toPoint, options) * 1000
+}
+
+export function getBuffer(marker, sizeInKilometres) {
+    const bufferPoint = turf.point([marker.lng, marker.lat])
+    const options = { units: 'kilometers' }
+    return turf.buffer(bufferPoint, sizeInKilometres, options)
 }
