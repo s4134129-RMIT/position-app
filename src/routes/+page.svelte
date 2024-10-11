@@ -40,22 +40,6 @@
             label: 'Marker 1',
             name: 'This is a marker',
         },
-        {
-            lngLat: {
-                lng: 144.96318039790924,
-                lat: -37.808357984258315,
-            },
-            label: 'Marker 2',
-            name: 'This is a marker',
-        },
-        {
-            lngLat: {
-                lng: 144.96280297287632,
-                lat: -37.80668719932231,
-            },
-            label: 'Marker 3',
-            name: 'This is a marker',
-        },
     ]
 
     let towers = [
@@ -107,7 +91,7 @@
             ]
             countTowers -= 1
         }
-        else {
+        if (countTowers === 0) {
             disableDropTower = true
         }
     }
@@ -143,7 +127,7 @@
             {
                 lngLat: { lng: coords[0], lat: coords[1] },
                 label: 'Current',
-                name: 'This is the current position',
+                name: 'Current Position',
             },
         ]
     }
@@ -151,6 +135,7 @@
     // Watch a position using Geolocation API if you need continuous updates
     let watchPosition = false
     let watchedPosition = {}
+    let currentPosition = {}
     let watchedMarker = {}
 
     /**
@@ -174,7 +159,6 @@
             if (rhumbDistance <= threshold) {
                 count += 1
             }
-            console.log(rhumbDistance)
         })
     }
 
@@ -289,6 +273,7 @@
                 watch={true}
                 on:position={(e) => {
                     watchedPosition = e.detail
+                    currentPosition = e.detail
                 }}
             />
 
@@ -319,7 +304,7 @@
                 class="btn btn-neutral"
                 disabled={disableDropTower}
                 on:click={() => {
-                    addTower(watchedPosition, 'label', 'name')
+                    addTower(currentPosition, 'label', 'name')
                 }}
             >
                 Drop
@@ -369,7 +354,7 @@
 
             <GeoJSON
                 id="towerBuffer"
-                data={getBuffer(watchedMarker.lngLat, 0.1)}
+                data={getBuffer(watchedMarker.lngLat, 0.01)}
             >
                 <FillLayer
                     paint={{
@@ -504,7 +489,7 @@
 
             <GeoJSON
                 id="watchedMarkerBuffer"
-                data={getBuffer(watchedMarker.lngLat, 0.05)}
+                data={getBuffer(watchedMarker.lngLat, 0.01)}
             >
                 <FillLayer
                     paint={{
