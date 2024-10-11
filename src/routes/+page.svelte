@@ -281,17 +281,6 @@
         </div>
 
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Toggle Melbourne Suburbs</h1>
-
-            <button
-                class="btn btn-neutral"
-                on:click={() => { showGeoJSON = !showGeoJSON }}
-            >
-                Toggle
-            </button>
-        </div>
-
-        <div class="col-span-4 md:col-span-1 text-center">
             <h1 class="font-bold">Current markers around your location: {count}</h1>
 
             Counts markers within 1000 meters of your location marker.
@@ -307,7 +296,18 @@
                     addTower(currentPosition, 'label', 'name')
                 }}
             >
-                Drop
+                Drop Tower
+            </button>
+        </div>
+
+        <div class="col-span-4 md:col-span-1 text-center">
+            <h1 class="font-bold">Toggle Melbourne Suburbs</h1>
+
+            <button
+                class="btn btn-neutral"
+                on:click={() => { showGeoJSON = !showGeoJSON }}
+            >
+                Toggle
             </button>
         </div>
 
@@ -430,7 +430,7 @@
             </DefaultMarker>
             <GeoJSON
                 id="towerBuffer{name}"
-                data={getBuffer(lngLat, 0.1)}
+                data={getBuffer(lngLat, 0.01)}
             >
                 <FillLayer
                     paint={{
