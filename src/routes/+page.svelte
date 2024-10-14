@@ -143,6 +143,21 @@
             }
         })
     }
+  
+    let randomPoints = []
+    let lastUpdateTime = 0
+    const UPDATE_INTERVAL = 20 * 60 * 1000 // 20 minutes in milliseconds
+
+    // Reactive statement to generate random points when watchedPosition changes
+    $: if (watchedPosition.coords) {
+        const currentTime = Date.now()
+        if (currentTime - lastUpdateTime >= UPDATE_INTERVAL) {
+            const { latitude, longitude } = watchedPosition.coords
+            randomPoints = generateRandomPoints(latitude, longitude)
+            lastUpdateTime = currentTime
+        }
+    }
+
 
     /**
      * Variables can be initialised without a value and populated later
@@ -167,10 +182,74 @@
      * on a remote server. Try this by replacing 'melbourne.geojson' with
      * 'https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/melbourne.geojson'
      */
+    /**
+     * Generates 15 random points around the given location within a 200-meter radius
+     * @param {number} lat - Latitude of the current location
+     * @param {number} lng - Longitude of the current location
+     * @returns {Array} Array of objects containing lat and lng of random points
+     */
+    function generateRandomPoints(lat, lng) {
+        const points = []
+        const earthRadius = 6371000 // Earth's radius in meters
+        const maxDistance = 200 // Maximum distance in meters
+
+        for (let i = 0; i < 15; i++) {
+            // Generate random distance and angle
+            const randomDistance = Math.random() * maxDistance
+            const randomAngle = Math.random() * 2 * Math.PI
+
+            // Calculate offset in latitude and longitude
+            const latOffset = (randomDistance / earthRadius) * (180 / Math.PI)
+            const lngOffset = (randomDistance / earthRadius) * (180 / Math.PI) / Math.cos(lat * Math.PI / 180)
+
+            // Calculate new lat and lng
+            const newLat = lat + latOffset * Math.cos(randomAngle)
+            const newLng = lng + lngOffset * Math.sin(randomAngle)
+
+            points.push({
+                lngLat: { lng: newLng, lat: newLat },
+                label: `Random ${i + 1}`,
+                name: `Random point ${i + 1}`
+            })
+        }
+
+        return points
+    }
+
     onMount(async () => {
-        const response = await fetch('melbourne.geojson')
-        geojsonData = await response.json()
+        try {
+            const response = await fetch('melbourne.geojson')
+            geojsonData = await response.json()
+        } catch (error) {
+            console.error('Error loading GeoJSON data:', error)
+        }
     })
+
+    let landmarkFeatures = []
+    let hoveredLandmark = null
+    let debugInfo = ''
+
+    onMount(async () => {
+        try {
+            const response = await fetch('/landmark.geojson')
+            const data = await response.json()
+            landmarkFeatures = data.features
+            debugInfo = `Loaded ${landmarkFeatures.length} features`
+            console.log('First landmark feature:', landmarkFeatures[0])
+            console.log('Coordinates of first feature:', landmarkFeatures[0]?.geometry?.coordinates)
+        } catch (error) {
+            console.error('Error loading landmark GeoJSON data:', error)
+            debugInfo = `Error: ${error.message}`
+        }
+    })
+
+    function handleMouseEnter(feature) {
+        hoveredLandmark = feature.properties.feature_na || 'Unnamed Landmark'
+    }
+
+    function handleMouseLeave() {
+        hoveredLandmark = null
+    }
 </script>
 
 <!-- Everything after <script> will be HTML for rendering -->
@@ -258,7 +337,7 @@
                 class="btn btn-neutral"
                 on:click={() => { showGeoJSON = !showGeoJSON }}
             >
-                Toggle
+                {showGeoJSON ? 'Hide' : 'Show'} Suburbs
             </button>
         </div>
 
@@ -280,8 +359,15 @@
         standardControls
         style="https://tiles.basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
         bind:bounds
-        zoom={14}
+        zoom={10}
     >
+        <Marker
+            lngLat={[144.97, -37.81]}
+            class="w-8 h-8 rounded-full bg-blue-500 cursor-pointer"
+        />
+
+        <!-- ... other markers ... -->
+
         <!-- Custom control buttons -->
         <Control class="flex flex-col gap-y-2">
             <ControlGroup>
@@ -357,6 +443,29 @@
             </Marker>
         {/each}
 
+
+        {#each randomPoints as { lngLat, name }, i (i)}
+            <Marker
+                {lngLat}
+                class="w-4 h-4 rounded-full bg-purple-500"
+            >
+                <Popup
+                    openOn="hover"
+                    offset={[0, -10]}>
+                    <div class="text-sm">{name}</div>
+                </Popup>
+            </Marker>
+        {/each}
+
+        {#each landmarkFeatures as feature (feature.id)}
+            <Marker
+                lngLat={feature.geometry.coordinates}
+                class="w-4 h-4 rounded-full bg-red-500 cursor-pointer"
+                on:mouseenter={() => handleMouseEnter(feature)}
+                on:mouseleave={handleMouseLeave}
+            />
+        {/each}
+
         <!-- Display the watched position as a marker -->
         {#if watchedMarker.lngLat}
             <DefaultMarker lngLat={watchedMarker.lngLat}>
@@ -365,7 +474,18 @@
                 </Popup>
             </DefaultMarker>
         {/if}
+
     </MapLibre>
+
+    <div class="absolute top-4 right-4 bg-white p-2 rounded shadow">
+        Debug: {debugInfo}
+    </div>
+
+    {#if hoveredLandmark}
+        <div class="absolute top-4 left-4 bg-white p-2 rounded shadow">
+            {hoveredLandmark}
+        </div>
+    {/if}
 </div>
 
 <!-- Optionally, you can have a <style> tag for CSS at the end, but with TailwindCSS it is usually not necessary -->
