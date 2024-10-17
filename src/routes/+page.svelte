@@ -52,11 +52,25 @@
         },
     ]
 
+    let getPosition = false
+    let success = false
+    let error = ''
+    let debugInfo = ''
+
+    let hoveredLandmark = null
+    let lastUpdateTime = 0
+    const UPDATE_INTERVAL = 1 * 60 * 1000 // 20 minutes in milliseconds
     let countTowers = 5
+    // buttons and events
     let disableTracking = true
     let disableMultipleGeolocation = false
     let disableDropTower = true
     let disableRespawnEnemies = true
+    // empty placeholders
+    let position = {}
+    let coords = []
+    let landmarkFeatures = []
+    let randomEnemies = []
 
     // Extent of the map
     let bounds = getMapBounds(towers)
@@ -103,12 +117,6 @@
         timeout: Infinity, // milliseconds
         maximumAge: 0, // milliseconds, 0 disables cached positions
     }
-    let getPosition = false
-    let success = false
-    let error = ''
-    let position = {}
-    let coords = []
-
     /**
      * $: indicates a reactive statement, meaning that this block of code is
      * executed whenever the variable used as the condition changes its value
@@ -154,26 +162,23 @@
 
         countEnemies = 0
         // Whenever the watched position is updated, check if it is within 10 meters of any marker
-        markers.forEach((marker) => {
-            const rhumbDistance = getRhumbDistance([watchedMarker, marker])
-            const threshold = 50
+
+        towers.forEach((tower) => {
+            const rhumbDistance = getRhumbDistance([watchedMarker, tower])
+            const threshold = 1
 
             if (rhumbDistance <= threshold) {
-                countEnemies += 1
+                console.log('in range')
             }
         })
     }
-
-    let randomPoints = []
-    let lastUpdateTime = 0
-    const UPDATE_INTERVAL = 1 * 60 * 1000 // 20 minutes in milliseconds
 
     // Reactive statement to generate random points when watchedPosition changes
     $: if (watchedPosition.coords) {
         const currentTime = Date.now()
         if (currentTime - lastUpdateTime >= UPDATE_INTERVAL) {
             const { latitude, longitude } = watchedPosition.coords
-            randomPoints = generateRandomPoints(latitude, longitude)
+            randomEnemies = generateRandomPoints(latitude, longitude)
             lastUpdateTime = currentTime
         }
     }
@@ -216,7 +221,7 @@
     }
 
     function updateRandomPoints(wm) {
-        randomPoints = generateRandomPoints(wm.lngLat.lat, wm.lngLat.lng)
+        randomEnemies = generateRandomPoints(wm.lngLat.lat, wm.lngLat.lng)
     }
 
     /**
@@ -225,12 +230,6 @@
      * assigned a value
      */
 
-    const showGeoJSON = false
-    let geojsonData
-
-    let landmarkFeatures = []
-    let hoveredLandmark = null
-    let debugInfo = ''
     /**
      * onMount is executed immediately after the component is mounted, it can be
      * used to load large datasets or to execute code required after the page
@@ -283,7 +282,7 @@
     <!-- In the HTML part, {} tells the framework to treat what's inside as code (variables or functions), instead of as strings -->
     <!-- () => {} is an arrow function, almost equivalent to function foo() {} -->
     <button
-        class="btn btn-neutral"
+        class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-primary"
         disabled={disableMultipleGeolocation}
         on:click={() => {
             getPosition = true
@@ -297,7 +296,7 @@
     <h1 class="font-bold">Track position while moving</h1>
 
     <button
-        class="btn btn-neutral"
+        class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-primary"
         disabled={disableTracking}
         on:click={() => {
             watchPosition = true
@@ -368,10 +367,10 @@
 
         <div class="col-span-4 md:col-span-1 text-center">
             <button
-                class="btn btn-primary transition ease-in-out delay-150 bg-orange-400 hover:-translate-y-1 hover:scale-110 hover:bg-orange-600 duration-300"
+                class="btn sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
                 disabled={disableDropTower}
                 on:click={() => {
-                    addTower(watchedMarker, 'label', 'name', Math.floor(50 + Math.random() * (200 - 50 + 1)) / 1000)
+                    addTower(watchedMarker, 'label', 'name', Math.floor(10 + Math.random() * (50 - 10 + 1)) / 1000)
                     console.log(towers)
                 }}
             >
@@ -381,14 +380,14 @@
 
         <div class="col-span-4 md:col-span-1 text-center">
             <button
-                class="btn transition ease-in-out delay-150 bg-pink-400 hover:-translate-y-1 hover:scale-110 hover:bg-pink-600 duration-300"
+                class="btn sm:btn-sm md:btn-md lg:btn-lg btn-accent"
                 disabled={disableRespawnEnemies}
                 on:click={() => {
                     updateRandomPoints(watchedMarker)
-                    console.log(randomPoints)
+                    console.log(randomEnemies)
                 }}
             >
-                Respawn Enemies. Current: {randomPoints.length}
+                Respawn Enemies. Current: {randomEnemies.length}
             </button>
         </div>
 
@@ -423,7 +422,7 @@
             <ControlGroup>
                 <ControlButton
                     on:click={() => {
-                        bounds = getMapBounds(randomPoints)
+                        bounds = getMapBounds(randomEnemies)
                     }}
                 >
                     Fit
@@ -436,64 +435,10 @@
 
         <!-- This is how GeoJSON datasets are rendered -->
         <!-- promoteId must be a unique ID field in properties of each feature -->
-
-        {#if showGeoJSON}
-            <GeoJSON
-                id="geojsonData"
-                data={geojsonData}
-                promoteId="name"
-            >
-                <FillLayer
-                    paint={{
-                        'fill-color': hoverStateFilter('purple', 'yellow'),
-                        'fill-opacity': 0.3,
-                    }}
-                    beforeLayerType="symbol"
-                    manageHoverState
-                >
-                    <Popup
-                        openOn="hover"
-                        let:data
-                    >
-                        {@const props = data?.properties}
-                        {#if props}
-                            <div class="flex flex-col gap-2">
-                                <p>{props.name}</p>
-                            </div>
-                        {/if}
-                    </Popup>
-                </FillLayer>
-                <LineLayer
-                    layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-                    paint={{ 'line-color': 'purple', 'line-width': 3 }}
-                    beforeLayerType="symbol"
-                />
-            </GeoJSON>
-        {/if}
-
         <!-- Displaying markers, this is reactive -->
         <!-- For-each loop syntax -->
         <!-- markers is an object, lngLat, label, name are the fields in the object -->
         <!-- i is the index, () indicates the unique ID for each item, duplicate IDs will lead to errors -->
-
-        {#each markers as { lngLat, label, name }, i (i)}
-            <Marker
-                {lngLat}
-                class="grid h-8 w-14 place-items-center rounded-md border
-                    border-gray-200 bg-red-300 text-black shadow-2xl
-                    focus:outline-2 focus:outline-black"
-            >
-                <span>
-                    {label}
-                </span>
-
-                <Popup
-                    openOn="hover"
-                    offset={[0, -10]}>
-                    <div class="text-lg font-bold">{name}</div>
-                </Popup>
-            </Marker>
-        {/each}
 
         {#each towers as { lngLat, attackRange }, i (i)}
             <Marker
@@ -533,7 +478,7 @@
 
         {/each}
 
-        {#each randomPoints as { lngLat, name }, i (i)}
+        {#each randomEnemies as { lngLat, name }, i (i)}
             <Marker
                 {lngLat}
                 class="w-4 h-4 rounded-full bg-purple-500"
