@@ -48,7 +48,7 @@
             },
             label: 'Tower 1',
             name: 'My Tower # 1',
-            range: 100,
+            attackRange: 100,
         },
     ]
 
@@ -79,7 +79,7 @@
         ]
     }
 
-    function addTower(t, label, name) {
+    function addTower(t, label, name, attackRange) {
         if (countTowers !== 0) {
             towers = [
                 ...towers,
@@ -87,6 +87,7 @@
                     lngLat: t.lngLat,
                     label,
                     name,
+                    attackRange,
                 },
             ]
             countTowers -= 1
@@ -370,7 +371,7 @@
                 class="btn btn-primary transition ease-in-out delay-150 bg-orange-400 hover:-translate-y-1 hover:scale-110 hover:bg-orange-600 duration-300"
                 disabled={disableDropTower}
                 on:click={() => {
-                    addTower(watchedMarker, 'label', 'name')
+                    addTower(watchedMarker, 'label', 'name', Math.floor(50 + Math.random() * (200 - 50 + 1)) / 1000)
                     console.log(towers)
                 }}
             >
@@ -494,7 +495,7 @@
             </Marker>
         {/each}
 
-        {#each towers as { lngLat }, i (i)}
+        {#each towers as { lngLat, attackRange }, i (i)}
             <Marker
                 {lngLat}
                 class="grid h-8 w-8 place-items-center rounded-full
@@ -512,7 +513,7 @@
             </Marker>
             <GeoJSON
                 id="towerBuffer{i}"
-                data={getBuffer(lngLat, 0.01)}
+                data={getBuffer(lngLat, attackRange)}
             >
                 <FillLayer
                     paint={{
