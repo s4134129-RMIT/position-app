@@ -11,19 +11,16 @@
         GeoJSON,
         hoverStateFilter,
         LineLayer,
-        // eslint-disable-next-line no-unused-vars
-        MapEvents,
         MapLibre,
         Marker,
         Popup,
     } from 'svelte-maplibre' // DoNotChange
-
     /**
      * You can put functions you need for multiple components in a js file in
      * the lib folder, export them in lib/index.js and then import them like this
      */
     import { getBuffer, getMapBounds, getRhumbDistance } from '$lib'
-
+    import StartModal from './StartModal.svelte'
     /**
      * Declare variables
      * let decalres an immutable variable
@@ -31,7 +28,7 @@
      *
      * Note the format of markers
      */
-
+    let showModal = false
     let markers = [
         {
             lngLat: {
@@ -51,6 +48,7 @@
             },
             label: 'Tower 1',
             name: 'My Tower # 1',
+            range: 100,
         },
     ]
 
@@ -58,6 +56,7 @@
     let disableTracking = true
     let disableMultipleGeolocation = false
     let disableDropTower = true
+    let disableRespawnEnemies = true
 
     // Extent of the map
     let bounds = getMapBounds(towers)
@@ -123,6 +122,7 @@
 
     $: if (success) {
         coords = [position.coords.longitude, position.coords.latitude]
+    /*
         markers = [
             ...markers,
             {
@@ -131,8 +131,8 @@
                 name: 'Current Position',
             },
         ]
+    */
     }
-
     // Watch a position using Geolocation API if you need continuous updates
     let watchPosition = false
     let watchedPosition = {}
@@ -141,7 +141,7 @@
     /**
      * Trigger an action when getting close to a marker
      */
-    let count = 0 // number of markers found
+    let countEnemies = 0 // number of markers found
     $: if (watchedPosition.coords) { // this block is triggered when watchedPosition is updated
         // The tracked position in marker format
         watchedMarker = {
@@ -151,21 +151,21 @@
             },
         }
 
-        count = 0
+        countEnemies = 0
         // Whenever the watched position is updated, check if it is within 10 meters of any marker
         markers.forEach((marker) => {
             const rhumbDistance = getRhumbDistance([watchedMarker, marker])
             const threshold = 50
 
             if (rhumbDistance <= threshold) {
-                count += 1
+                countEnemies += 1
             }
         })
     }
 
     let randomPoints = []
     let lastUpdateTime = 0
-    const UPDATE_INTERVAL = 20 * 60 * 1000 // 20 minutes in milliseconds
+    const UPDATE_INTERVAL = 1 * 60 * 1000 // 20 minutes in milliseconds
 
     // Reactive statement to generate random points when watchedPosition changes
     $: if (watchedPosition.coords) {
@@ -178,29 +178,6 @@
     }
 
     /**
-     * Variables can be initialised without a value and populated later
-     * WARNING: this can lead to errors if the variable is used before being
-     * assigned a value
-     */
-
-    let showGeoJSON = false
-    let geojsonData
-
-    /**
-     * onMount is executed immediately after the component is mounted, it can be
-     * used to load large datasets or to execute code required after the page
-     * has been loaded
-     *
-     * async/await indicate an asynchronous function (i.e., program is paused
-     * when a line marked with await starts and resumes when it is resolved)
-     *
-     * Asset files (e.g., data files, images) can be put in static folder
-     *
-     * Another way to load data files is to use a URL to the file hosted
-     * on a remote server. Try this by replacing 'melbourne.geojson' with
-     * 'https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/melbourne.geojson'
-     */
-    /**
      * Generates 15 random points around the given location within a 200-meter radius
      * @param {number} lat - Latitude of the current location
      * @param {number} lng - Longitude of the current location
@@ -210,8 +187,11 @@
         const points = []
         const earthRadius = 6371000 // Earth's radius in meters
         const maxDistance = 200 // Maximum distance in meters
+        const minEnemies = 1
+        const maxEnemies = 20
+        const countEnemies = Math.floor(minEnemies + Math.random() * (maxEnemies - minEnemies + 1))
 
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < countEnemies; i++) {
             // Generate random distance and angle
             const randomDistance = Math.random() * maxDistance
             const randomAngle = Math.random() * 2 * Math.PI
@@ -234,23 +214,40 @@
         return points
     }
 
-    onMount(async () => {
-        try {
-            const response = await fetch('melbourne.geojson')
-            geojsonData = await response.json()
-        }
-        catch (error) {
-            console.error('Error loading GeoJSON data:', error)
-        }
-    })
+    function updateRandomPoints(wm) {
+        randomPoints = generateRandomPoints(wm.lngLat.lat, wm.lngLat.lng)
+    }
+
+    /**
+     * Variables can be initialised without a value and populated later
+     * WARNING: this can lead to errors if the variable is used before being
+     * assigned a value
+     */
+
+    const showGeoJSON = false
+    let geojsonData
 
     let landmarkFeatures = []
     let hoveredLandmark = null
     let debugInfo = ''
-
+    /**
+     * onMount is executed immediately after the component is mounted, it can be
+     * used to load large datasets or to execute code required after the page
+     * has been loaded
+     *
+     * async/await indicate an asynchronous function (i.e., program is paused
+     * when a line marked with await starts and resumes when it is resolved)
+     *
+     * Asset files (e.g., data files, images) can be put in static folder
+     *
+     * Another way to load data files is to use a URL to the file hosted
+     * on a remote server. Try this by replacing 'melbourne.geojson' with
+     * 'https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/melbourne.geojson'
+     */
     onMount(async () => {
+        showModal = true
         try {
-            const response = await fetch('/landmark.geojson')
+            const response = await fetch('landmarks1011.geojson')
             const data = await response.json()
             landmarkFeatures = data.features
             debugInfo = `Loaded ${landmarkFeatures.length} features`
@@ -272,31 +269,53 @@
     }
 </script>
 
-<!-- Everything after <script> will be HTML for rendering -->
+<StartModal
+    class="modal-middle"
+    bind:showModal>
 
+    <h1
+        class="font-bold"
+        slot="header">Get your current position on the map.</h1>
+    <div class="text-center font-medium text-red-500">Track Location will be disabled until this is done.</div>
+
+    <!-- on:click declares what to do when the button is clicked -->
+    <!-- In the HTML part, {} tells the framework to treat what's inside as code (variables or functions), instead of as strings -->
+    <!-- () => {} is an arrow function, almost equivalent to function foo() {} -->
+    <button
+        class="btn btn-neutral"
+        disabled={disableMultipleGeolocation}
+        on:click={() => {
+            getPosition = true
+            disableTracking = false
+            disableMultipleGeolocation = true
+        }}
+    >
+        Get Position
+    </button>
+
+    <h1 class="font-bold">Track position while moving</h1>
+
+    <button
+        class="btn btn-neutral"
+        disabled={disableTracking}
+        on:click={() => {
+            watchPosition = true
+            disableDropTower = false
+            disableTracking = true
+            disableRespawnEnemies = false
+        }}
+    >
+        Track
+    </button>
+
+</StartModal>
+
+<!-- Everything after <script> will be HTML for rendering -->
 <!-- This section demonstrates how to get the current user location -->
 <div class="flex flex-col h-[calc(100vh-80px)] w-full">
     <!-- grid, grid-cols-#, col-span-#, md:xxxx are some Tailwind utilities you can use for responsive design -->
     <div class="grid grid-cols-4">
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Get your current position on the map.</h1>
-            <div class="text-center font-medium text-red-500">Track Location will be disabled until this is done.</div>
-
-            <!-- on:click declares what to do when the button is clicked -->
-            <!-- In the HTML part, {} tells the framework to treat what's inside as code (variables or functions), instead of as strings -->
-            <!-- () => {} is an arrow function, almost equivalent to function foo() {} -->
-            <button
-                class="btn btn-neutral"
-                disabled={disableMultipleGeolocation}
-                on:click={() => {
-                    getPosition = true
-                    disableTracking = false
-                    disableMultipleGeolocation = true
-                }}
-            >
-                Get Position
-            </button>
-
             <!-- <Geolocation> tag is used to access the Geolocation API -->
             <!-- {getPosition} is equivalent to getPosition={getPosition} -->
             <!-- bind:variable associates the parameter with the variable with the same name declared in <script> reactively -->
@@ -333,19 +352,6 @@
 
         <!-- This section demonstrates how to get automatically updated user location -->
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Track position while moving</h1>
-
-            <button
-                class="btn btn-neutral"
-                disabled={disableTracking}
-                on:click={() => {
-                    watchPosition = true
-                    disableDropTower = false
-                    disableTracking = true
-                }}
-            >
-                Track
-            </button>
 
             <Geolocation
                 getPosition={watchPosition}
@@ -360,64 +366,34 @@
         </div>
 
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Current markers around your location: {count}</h1>
-
-            Counts markers within 10 meters of your location marker.
-        </div>
-
-        <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Drop Towers. Remaining : {countTowers}</h1>
-
             <button
-                class="btn transition ease-in-out delay-150 bg-blue-500 hover:-translate-y-1 hover:scale-110 hover:bg-indigo-500 duration-300"
-
+                class="btn btn-primary transition ease-in-out delay-150 bg-orange-400 hover:-translate-y-1 hover:scale-110 hover:bg-orange-600 duration-300"
                 disabled={disableDropTower}
                 on:click={() => {
                     addTower(watchedMarker, 'label', 'name')
                     console.log(towers)
                 }}
             >
-                Drop Tower
+                Drop Towers. Remaining : {countTowers}
             </button>
         </div>
 
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Current markers around your location: {count}</h1>
-
-            Counts markers within 10 meters of your location marker.
-        </div>
-
-        <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Drop Towers. Remaining : {countTowers}</h1>
-
             <button
-                class="btn transition ease-in-out delay-150 bg-blue-500 hover:-translate-y-1 hover:scale-110 hover:bg-indigo-500 duration-300"
-
-                disabled={disableDropTower}
+                class="btn transition ease-in-out delay-150 bg-pink-400 hover:-translate-y-1 hover:scale-110 hover:bg-pink-600 duration-300"
+                disabled={disableRespawnEnemies}
                 on:click={() => {
-                    addTower(watchedMarker, 'label', 'name')
-                    console.log(towers)
+                    updateRandomPoints(watchedMarker)
+                    console.log(randomPoints)
                 }}
             >
-                Drop Tower
+                Respawn Enemies. Current: {randomPoints.length}
             </button>
         </div>
 
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Toggle Melbourne Suburbs</h1>
-
-            <button
-                class="btn transition ease-in-out delay-150 bg-blue-500 hover:-translate-y-1 hover:scale-110 hover:bg-indigo-500 duration-300"
-                on:click={() => { showGeoJSON = !showGeoJSON }}
-            >
-                {showGeoJSON ? 'Hide' : 'Show'} Suburbs
-            </button>
-        </div>
-
-        <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Found {count} markers</h1>
-
-            The count will go up by one each time you are within 10 meters of a marker.
+            <h1 class="font-bold">Found {countEnemies} Enemies in Range</h1>
+            Counts enemies in tower range
         </div>
     </div>
 
@@ -446,7 +422,7 @@
             <ControlGroup>
                 <ControlButton
                     on:click={() => {
-                        bounds = getMapBounds(markers)
+                        bounds = getMapBounds(randomPoints)
                     }}
                 >
                     Fit
@@ -589,7 +565,7 @@
 
             <GeoJSON
                 id="watchedMarkerBuffer"
-                data={getBuffer(watchedMarker.lngLat, 0.005)}
+                data={getBuffer(watchedMarker.lngLat, 0.1)}
             >
                 <FillLayer
                     paint={{
