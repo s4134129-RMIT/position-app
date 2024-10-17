@@ -162,15 +162,16 @@
 
         countEnemies = 0
         // Whenever the watched position is updated, check if it is within 10 meters of any marker
+        if (towers.length > 0) {
+            towers.forEach((tower) => {
+                const rhumbDistance = getRhumbDistance([watchedMarker, tower])
+                const threshold = 1
 
-        towers.forEach((tower) => {
-            const rhumbDistance = getRhumbDistance([watchedMarker, tower])
-            const threshold = 1
-
-            if (rhumbDistance <= threshold) {
-                console.log('in range')
-            }
-        })
+                if (rhumbDistance <= threshold) {
+                    console.log('in range')
+                }
+            })
+        }
     }
 
     // Reactive statement to generate random points when watchedPosition changes
@@ -315,6 +316,36 @@
 <div class="flex flex-col h-[calc(100vh-80px)] w-full">
     <!-- grid, grid-cols-#, col-span-#, md:xxxx are some Tailwind utilities you can use for responsive design -->
     <div class="grid grid-cols-4">
+        <div class="col-span-2 md:col-span-1 text-center">
+            <button
+                class="btn sm:btn-sm md:btn-md lg:btn-lg btn-accent"
+                disabled={disableDropTower}
+                on:click={() => {
+                    addTower(watchedMarker, 'label', 'name', Math.floor(50 + Math.random() * (75 - 50 + 1)) / 1000)
+                    console.log(towers)
+                }}
+            >
+                Drop Towers. Remaining : {countTowers}
+            </button>
+        </div>
+
+        <div class="col-span-2 md:col-span-1 text-center">
+            <button
+                class="btn sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
+                disabled={disableRespawnEnemies}
+                on:click={() => {
+                    updateRandomPoints(watchedMarker)
+                    console.log(randomEnemies)
+                }}
+            >
+                Respawn Enemies. Current: {randomEnemies.length}
+            </button>
+        </div>
+
+        <div class="col-span-4 md:col-span-1 text-center">
+            <h1 class="font-bold">Found {countEnemies} Enemies in Range</h1>
+            Counts enemies in tower range
+        </div>
         <div class="col-span-4 md:col-span-1 text-center">
             <!-- <Geolocation> tag is used to access the Geolocation API -->
             <!-- {getPosition} is equivalent to getPosition={getPosition} -->
@@ -365,36 +396,6 @@
             <p class="break-words text-left">watchedPosition: {JSON.stringify(watchedPosition)}</p>
         </div>
 
-        <div class="col-span-4 md:col-span-1 text-center">
-            <button
-                class="btn sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
-                disabled={disableDropTower}
-                on:click={() => {
-                    addTower(watchedMarker, 'label', 'name', Math.floor(10 + Math.random() * (50 - 10 + 1)) / 1000)
-                    console.log(towers)
-                }}
-            >
-                Drop Towers. Remaining : {countTowers}
-            </button>
-        </div>
-
-        <div class="col-span-4 md:col-span-1 text-center">
-            <button
-                class="btn sm:btn-sm md:btn-md lg:btn-lg btn-accent"
-                disabled={disableRespawnEnemies}
-                on:click={() => {
-                    updateRandomPoints(watchedMarker)
-                    console.log(randomEnemies)
-                }}
-            >
-                Respawn Enemies. Current: {randomEnemies.length}
-            </button>
-        </div>
-
-        <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Found {countEnemies} Enemies in Range</h1>
-            Counts enemies in tower range
-        </div>
     </div>
 
     <!-- This section demonstrates how to make a web map using MapLibre -->
@@ -439,44 +440,45 @@
         <!-- For-each loop syntax -->
         <!-- markers is an object, lngLat, label, name are the fields in the object -->
         <!-- i is the index, () indicates the unique ID for each item, duplicate IDs will lead to errors -->
-
-        {#each towers as { lngLat, attackRange }, i (i)}
-            <Marker
-                {lngLat}
-                class="grid h-8 w-8 place-items-center rounded-full
-                    border border-white-200
-                    bg-orange-900 text-white shadow-2xl focus:outline-2 focus:outline-white"
-            >
-                <span>
-                    {i}
-                </span>
-                <Popup
-                    openOn="hover"
-                    offset={[0, -10]}>
-                    <div class="text-lg font-bold">Tower {i} Initialized</div>
-                </Popup>
-            </Marker>
-            <GeoJSON
-                id="towerBuffer{i}"
-                data={getBuffer(lngLat, attackRange)}
-            >
-                <FillLayer
-                    paint={{
-                        'fill-color': hoverStateFilter('red', 'orange'),
-                        'fill-opacity': 0.3,
-                    }}
-                    beforeLayerType="symbol"
-                    manageHoverState
+        {#if towers.length > 0}
+            {#each towers as { lngLat, attackRange }, i (i)}
+                <Marker
+                    {lngLat}
+                    class="grid h-8 w-8 place-items-center rounded-full
+                        border border-white-200
+                        bg-orange-900 text-white shadow-2xl focus:outline-2 focus:outline-white"
                 >
-                </FillLayer>
-                <LineLayer
-                    layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-                    paint={{ 'line-color': 'red', 'line-width': 0.2 }}
-                    beforeLayerType="symbol"
-                />
-            </GeoJSON>
+                    <span>
+                        {i}
+                    </span>
+                    <Popup
+                        openOn="hover"
+                        offset={[0, -10]}>
+                        <div class="text-lg font-bold">Tower {i} Initialized</div>
+                    </Popup>
+                </Marker>
+                <GeoJSON
+                    id="towerBuffer{i}"
+                    data={getBuffer(lngLat, attackRange)}
+                >
+                    <FillLayer
+                        paint={{
+                            'fill-color': hoverStateFilter('green', 'yellow'),
+                            'fill-opacity': 0.3,
+                        }}
+                        beforeLayerType="symbol"
+                        manageHoverState
+                    >
+                    </FillLayer>
+                    <LineLayer
+                        layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                        paint={{ 'line-color': 'green', 'line-width': 0.2 }}
+                        beforeLayerType="symbol"
+                    />
+                </GeoJSON>
 
-        {/each}
+            {/each}
+        {/if}
 
         {#each randomEnemies as { lngLat, name }, i (i)}
             <Marker
@@ -511,12 +513,12 @@
 
             <GeoJSON
                 id="watchedMarkerBuffer"
-                data={getBuffer(watchedMarker.lngLat, 0.1)}
+                data={getBuffer(watchedMarker.lngLat, 0.05)}
             >
                 <FillLayer
                     paint={{
                         'fill-color': hoverStateFilter('blue', 'yellow'),
-                        'fill-opacity': 0.3,
+                        'fill-opacity': 0.2,
                     }}
                     beforeLayerType="symbol"
                     manageHoverState
