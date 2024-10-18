@@ -19,8 +19,9 @@
      * You can put functions you need for multiple components in a js file in
      * the lib folder, export them in lib/index.js and then import them like this
      */
-    import { getBuffer, getMapBounds, getRhumbDistance } from '$lib'
-    import StartModal from './StartModal.svelte'
+    import { getBuffer, getMapBounds } from '$lib'
+    import * as turf from '@turf/turf'
+    import StartModal from '../lib/StartModal.svelte'
     /**
      * Declare variables
      * let decalres an immutable variable
@@ -46,9 +47,9 @@
                 lng: 144.96383,
                 lat: -37.80967,
             },
-            label: 'Tower 1',
-            name: 'My Tower # 1',
-            attackRange: 100,
+            label: 'Tower 0',
+            name: 'Base',
+            attackRange: 0.1,
         },
     ]
 
@@ -59,7 +60,7 @@
 
     let hoveredLandmark = null
     let lastUpdateTime = 0
-    const UPDATE_INTERVAL = 1 * 60 * 1000 // 20 minutes in milliseconds
+    const UPDATE_INTERVAL = 0.1 * 60 * 1000 // 20 minutes in milliseconds
     let countTowers = 5
     // buttons and events
     let disableTracking = true
@@ -161,17 +162,28 @@
         }
 
         countEnemies = 0
-        // Whenever the watched position is updated, check if it is within 10 meters of any marker
-        if (towers.length > 0) {
-            towers.forEach((tower) => {
-                const rhumbDistance = getRhumbDistance([watchedMarker, tower])
-                const threshold = 1
-
+        /* towers.forEach((tower) => {
+            randomEnemies.forEach((enemy) => {
+                const rhumbDistance = getRhumbDistance([tower, enemy])
+                const threshold = 1000 * tower.attackRange
+                console.log(rhumbDistance)
                 if (rhumbDistance <= threshold) {
-                    console.log('in range')
+                    countEnemies += 1
                 }
             })
-        }
+        }) */
+
+        towers.forEach((tower) => {
+            randomEnemies.forEach((enemy) => {
+                const pe = turf.point([enemy.lngLat.lng, enemy.lngLat.lat])
+                const pt = turf.point([tower.lngLat.lng, tower.lngLat.lat])
+                const br = turf.buffer(pt, tower.attackRange, { units: 'kilometers' })
+
+                if (turf.booleanPointInPolygon(pe, br)) {
+                    countEnemies += 1
+                }
+            })
+        })
     }
 
     // Reactive statement to generate random points when watchedPosition changes
@@ -194,8 +206,8 @@
         const points = []
         const earthRadius = 6371000 // Earth's radius in meters
         const maxDistance = 200 // Maximum distance in meters
-        const minEnemies = 1
-        const maxEnemies = 20
+        const minEnemies = 5
+        const maxEnemies = 50
         const countEnemies = Math.floor(minEnemies + Math.random() * (maxEnemies - minEnemies + 1))
 
         for (let i = 0; i < countEnemies; i++) {
@@ -252,11 +264,11 @@
             const data = await response.json()
             landmarkFeatures = data.features
             debugInfo = `Loaded ${landmarkFeatures.length} features`
-            console.log('First landmark feature:', landmarkFeatures[0])
-            console.log('Coordinates of first feature:', landmarkFeatures[0]?.geometry?.coordinates)
+        // console.log('First landmark feature:', landmarkFeatures[0])
+            // console.log('Coordinates of first feature:', landmarkFeatures[0]?.geometry?.coordinates)
         }
         catch (error) {
-            console.error('Error loading landmark GeoJSON data:', error)
+            // console.error('Error loading landmark GeoJSON data:', error)
             debugInfo = `Error: ${error.message}`
         }
     })
@@ -321,8 +333,8 @@
                 class="btn sm:btn-sm md:btn-md lg:btn-lg btn-accent"
                 disabled={disableDropTower}
                 on:click={() => {
-                    addTower(watchedMarker, 'label', 'name', Math.floor(50 + Math.random() * (75 - 50 + 1)) / 1000)
-                    console.log(towers)
+                    addTower(watchedMarker, 'label', 'name', Math.floor(10 + Math.random() * (25 - 10 + 1)) / 1000)
+                // console.log(towers)
                 }}
             >
                 Drop Towers. Remaining : {countTowers}
@@ -335,7 +347,7 @@
                 disabled={disableRespawnEnemies}
                 on:click={() => {
                     updateRandomPoints(watchedMarker)
-                    console.log(randomEnemies)
+                // console.log(randomEnemies)
                 }}
             >
                 Respawn Enemies. Current: {randomEnemies.length}
@@ -513,7 +525,7 @@
 
             <GeoJSON
                 id="watchedMarkerBuffer"
-                data={getBuffer(watchedMarker.lngLat, 0.05)}
+                data={getBuffer(watchedMarker.lngLat, 0.01)}
             >
                 <FillLayer
                     paint={{
