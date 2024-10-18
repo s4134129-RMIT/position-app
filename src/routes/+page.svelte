@@ -29,7 +29,12 @@
      *
      * Note the format of markers
      */
-    let showModal = false
+
+    const minEnemies = 5
+    const maxEnemies = 50
+    const minTowerRangeMetres = 5
+    const maxTowerRangeMetres = 10
+
     let markers = [
         {
             lngLat: {
@@ -53,6 +58,7 @@
         },
     ]
 
+    let showModal = false
     let getPosition = false
     let success = false
     let error = ''
@@ -60,8 +66,7 @@
 
     let hoveredLandmark = null
     let lastUpdateTime = 0
-    const UPDATE_INTERVAL = 0.1 * 60 * 1000 // 20 minutes in milliseconds
-    let countTowers = 5
+    const UPDATE_INTERVAL = 1 * 60 * 1000 // minutes in milliseconds
     // buttons and events
     let disableTracking = true
     let disableMultipleGeolocation = false
@@ -94,20 +99,28 @@
         ]
     }
 
-    function addTower(t, label, name, attackRange) {
-        if (countTowers !== 0) {
+    const limitTowers = 5
+    let countTowers = 0
+    /**
+     * Adds a tower on the watchedMarker location, and generates a random attack range
+     * @param t
+     * @param label
+     * @param name
+     */
+    function addTower(t, label, name) {
+        if (limitTowers !== 0) {
             towers = [
                 ...towers,
                 {
                     lngLat: t.lngLat,
                     label,
                     name,
-                    attackRange,
+                    attackRange: Math.floor(minTowerRangeMetres + Math.random() * (maxTowerRangeMetres + minTowerRangeMetres + 1)) / 1000,
                 },
             ]
-            countTowers -= 1
+            countTowers = countTowers + 1
         }
-        if (countTowers === 0) {
+        if (countTowers === limitTowers) {
             disableDropTower = true
         }
     }
@@ -148,9 +161,6 @@
     let watchedPosition = {}
     let watchedMarker = {}
 
-    /**
-     * Trigger an action when getting close to a marker
-     */
     let countEnemies = 0 // number of markers found
     $: if (watchedPosition.coords) { // this block is triggered when watchedPosition is updated
         // The tracked position in marker format
@@ -162,17 +172,6 @@
         }
 
         countEnemies = 0
-        /* towers.forEach((tower) => {
-            randomEnemies.forEach((enemy) => {
-                const rhumbDistance = getRhumbDistance([tower, enemy])
-                const threshold = 1000 * tower.attackRange
-                console.log(rhumbDistance)
-                if (rhumbDistance <= threshold) {
-                    countEnemies += 1
-                }
-            })
-        }) */
-
         towers.forEach((tower) => {
             randomEnemies.forEach((enemy) => {
                 const pe = turf.point([enemy.lngLat.lng, enemy.lngLat.lat])
@@ -183,6 +182,28 @@
                     countEnemies += 1
                 }
             })
+        })
+    }
+
+    let countLandmarks = 0
+    $: if (watchedPosition.coords) { // this block is triggered when watchedPosition is updated
+        // The tracked position in marker format
+        watchedMarker = {
+            lngLat: {
+                lng: watchedPosition.coords.longitude,
+                lat: watchedPosition.coords.latitude,
+            },
+        }
+
+        countLandmarks = 0
+        landmarkFeatures.forEach((landmark) => {
+            const pl = turf.point([landmark.geometry.coordinates[0], landmark.geometry.coordinates[1]])
+            const loc = turf.point([watchedPosition.coords.longitude, watchedPosition.coords.latitude])
+            const pr = turf.buffer(loc, 20, { units: 'kilometers' })
+
+            if (turf.booleanPointInPolygon(pl, pr)) {
+                countLandmarks = countLandmarks + 1
+            }
         })
     }
 
@@ -197,7 +218,7 @@
     }
 
     /**
-     * Generates 15 random points around the given location within a 200-meter radius
+     * Generates random points around the given location within a specified radius
      * @param {number} lat - Latitude of the current location
      * @param {number} lng - Longitude of the current location
      * @returns {Array} Array of objects containing lat and lng of random points
@@ -205,9 +226,7 @@
     function generateRandomPoints(lat, lng) {
         const points = []
         const earthRadius = 6371000 // Earth's radius in meters
-        const maxDistance = 200 // Maximum distance in meters
-        const minEnemies = 5
-        const maxEnemies = 50
+        const maxDistance = 100 // Maximum distance in meters
         const countEnemies = Math.floor(minEnemies + Math.random() * (maxEnemies - minEnemies + 1))
 
         for (let i = 0; i < countEnemies; i++) {
@@ -264,8 +283,8 @@
             const data = await response.json()
             landmarkFeatures = data.features
             debugInfo = `Loaded ${landmarkFeatures.length} features`
-        // console.log('First landmark feature:', landmarkFeatures[0])
-            // console.log('Coordinates of first feature:', landmarkFeatures[0]?.geometry?.coordinates)
+            console.log('First landmark feature:', landmarkFeatures[0])
+        // console.log('Coordinates of first feature:', landmarkFeatures[0]?.geometry?.coordinates)
         }
         catch (error) {
             // console.error('Error loading landmark GeoJSON data:', error)
@@ -281,6 +300,8 @@
         hoveredLandmark = null
     }
 </script>
+
+<!-- Start Modal Component Inserted -->
 
 <StartModal
     class="modal-middle"
@@ -322,7 +343,6 @@
     </button>
 
 </StartModal>
-
 <!-- Everything after <script> will be HTML for rendering -->
 <!-- This section demonstrates how to get the current user location -->
 <div class="flex flex-col h-[calc(100vh-80px)] w-full">
@@ -333,11 +353,11 @@
                 class="btn sm:btn-sm md:btn-md lg:btn-lg btn-accent"
                 disabled={disableDropTower}
                 on:click={() => {
-                    addTower(watchedMarker, 'label', 'name', Math.floor(10 + Math.random() * (25 - 10 + 1)) / 1000)
+                    addTower(watchedMarker, 'label', 'name')
                 // console.log(towers)
                 }}
             >
-                Drop Towers. Remaining : {countTowers}
+                Drop Towers. Remaining : {limitTowers - countTowers}
             </button>
         </div>
 
@@ -355,8 +375,9 @@
         </div>
 
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Found {countEnemies} Enemies in Range</h1>
-            Counts enemies in tower range
+            <h1 class="font-bold">{countEnemies} Enemies Engaged</h1>
+            <h1 class="font-bold">{countTowers} of {limitTowers} Towers Deployed</h1>
+            <h1 class="font-bold">{countLandmarks} Landmarks Nearby</h1>
         </div>
         <div class="col-span-4 md:col-span-1 text-center">
             <!-- <Geolocation> tag is used to access the Geolocation API -->
@@ -446,12 +467,6 @@
         <!-- A map event to add a marker when clicked -->
         <!-- MapEvents on:click={event => addMarker(event, 'Added', 'This is an added marker')} / -->
 
-        <!-- This is how GeoJSON datasets are rendered -->
-        <!-- promoteId must be a unique ID field in properties of each feature -->
-        <!-- Displaying markers, this is reactive -->
-        <!-- For-each loop syntax -->
-        <!-- markers is an object, lngLat, label, name are the fields in the object -->
-        <!-- i is the index, () indicates the unique ID for each item, duplicate IDs will lead to errors -->
         {#if towers.length > 0}
             {#each towers as { lngLat, attackRange }, i (i)}
                 <Marker
