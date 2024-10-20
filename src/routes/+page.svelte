@@ -71,9 +71,43 @@
     let coords = []
     let landmarkFeatures = []
     let randomEnemies = []
-
     // Extent of the map
     let bounds = getMapBounds(towers)
+
+    let closestLandmark = null
+
+    let showPopup = true
+
+    function closePopup() {
+        showPopup = false
+    }
+
+    // Add this function to check for the closest landmark in range
+    function checkLandmarksInRange(watchedMarkerLngLat) {
+        if (!watchedMarkerLngLat || !landmarkFeatures) {
+            return
+        }
+
+        const bufferRadius = 0.05 // 50 meters in degrees, matching your buffer size
+        let minDistance = Infinity
+        closestLandmark = null
+
+        landmarkFeatures.forEach((feature) => {
+            const [lng, lat] = feature.geometry.coordinates
+            const dx = lng - watchedMarkerLngLat.lng
+            const dy = lat - watchedMarkerLngLat.lat
+            const distance = Math.sqrt(dx * dx + dy * dy)
+
+            if (distance <= bufferRadius && distance < minDistance) {
+                minDistance = distance
+                closestLandmark = {
+                    feature_na: feature.properties.feature_na || 'Unnamed',
+                    theme: feature.properties.theme || 'No theme',
+                    subtheme: feature.properties.sub_theme || 'No subtheme',
+                }
+            }
+        })
+    }
 
     /**
      * Declaring a function
@@ -172,6 +206,9 @@
                 }
             })
         }
+
+        // Check for landmarks in range whenever the watched position updates
+        checkLandmarksInRange(watchedMarker.lngLat)
     }
 
     // Reactive statement to generate random points when watchedPosition changes
@@ -480,15 +517,16 @@
             {/each}
         {/if}
 
-        {#each randomEnemies as { lngLat, name }, i (i)}
+        {#each randomEnemies as { lngLat }, i (i)}
             <Marker
                 {lngLat}
-                class="w-4 h-4 rounded-full bg-purple-500"
+                class="flex items-center justify-center w-8 h-8"
             >
+                <span class="text-2xl">🧟</span>
                 <Popup
                     openOn="hover"
                     offset={[0, -10]}>
-                    <div class="text-sm">{name}</div>
+                    <div class="text-sm">Zombie</div>
                 </Popup>
             </Marker>
         {/each}
@@ -501,7 +539,6 @@
                 on:mouseleave={handleMouseLeave}
             />
         {/each}
-
         <!-- Display the watched position as a marker -->
         {#if watchedMarker.lngLat}
 
@@ -523,17 +560,26 @@
                     beforeLayerType="symbol"
                     manageHoverState
                 >
-                    <Popup
-                        openOn="hover"
-                        let:data
-                    >
-                        {@const props = data?.properties}
-                        {#if props}
-                            <div class="flex flex-col gap-2">
-                                <p>50 meter range</p>
+                    {#if closestLandmark && showPopup}
+                        <Popup
+                            lngLat={watchedMarker.lngLat}
+                            closeButton={false}
+                            closeOnClick={false}
+                        >
+                            <div class="text-lg font-bold">🔧Repairable Tower:</div>
+                            <div class="mt-2">
+                                <div><strong>Name:</strong> {closestLandmark.feature_na}</div>
+                                <div><strong>Theme:</strong> {closestLandmark.theme}</div>
+                                <div><strong>Sub_theme:</strong> {closestLandmark.subtheme}</div>
                             </div>
-                        {/if}
-                    </Popup>
+                            <button
+                                class="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                on:click={closePopup}
+                            >
+                                Repair
+                            </button>
+                        </Popup>
+                    {/if}
                 </FillLayer>
                 <LineLayer
                     layout={{ 'line-cap': 'round', 'line-join': 'round' }}
