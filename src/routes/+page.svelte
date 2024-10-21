@@ -20,7 +20,7 @@
      * the lib folder, export them in lib/index.js and then import them like this
      */
     import { getBuffer, getMapBounds, getRhumbDistance } from '$lib'
-    import StartModal from './StartModal.svelte'
+    import StartModal from '../lib/StartModal.svelte'
     /**
      * Declare variables
      * let decalres an immutable variable
@@ -526,7 +526,7 @@
                 <Popup
                     openOn="hover"
                     offset={[0, -10]}>
-                    <div class="text-sm">Zombie</div>
+                    <div class="text-sm">Zombie {i}</div>
                 </Popup>
             </Marker>
         {/each}
