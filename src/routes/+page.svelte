@@ -19,7 +19,8 @@
      * You can put functions you need for multiple components in a js file in
      * the lib folder, export them in lib/index.js and then import them like this
      */
-    import { getBuffer, getMapBounds, getRhumbDistance } from '$lib'
+    import { getBuffer, getMapBounds } from '$lib'
+    import * as turf from '@turf/turf'
     import StartModal from '../lib/StartModal.svelte'
     /**
      * Declare variables
@@ -28,7 +29,7 @@
      *
      * Note the format of markers
      */
-    let showModal = false
+
     let markers = [
         {
             lngLat: {
@@ -48,7 +49,7 @@
             },
             label: 'Tower 1',
             name: 'My Tower # 1',
-            attackRange: 100,
+            attackRange: 0.01,
         },
     ]
 
@@ -60,7 +61,14 @@
     let hoveredLandmark = null
     let lastUpdateTime = 0
     const UPDATE_INTERVAL = 1 * 60 * 1000 // 20 minutes in milliseconds
-    let countTowers = 5
+    const limitTowers = 5
+    let countTowers = 0
+
+    const minEnemies = 5
+    const maxEnemies = 50
+    const minTowerRangeMetres = 5
+    const maxTowerRangeMetres = 10
+
     // buttons and events
     let disableTracking = true
     let disableMultipleGeolocation = false
@@ -73,10 +81,10 @@
     let randomEnemies = []
     // Extent of the map
     let bounds = getMapBounds(towers)
-
     let closestLandmark = null
 
     let showPopup = true
+    let showModal = false
 
     function closePopup() {
         showPopup = false
@@ -88,7 +96,7 @@
             return
         }
 
-        const bufferRadius = 0.05 // 50 meters in degrees, matching your buffer size
+        const bufferRadius = 1 // 50 meters in degrees, matching your buffer size
         let minDistance = Infinity
         closestLandmark = null
 
@@ -127,20 +135,26 @@
         ]
     }
 
-    function addTower(t, label, name, attackRange) {
-        if (countTowers !== 0) {
+    /**
+     * Adds a tower on the watchedMarker location, and generates a random attack range
+     * @param t
+     * @param label
+     * @param name
+     */
+    function addTower(t, label, name) {
+        if (limitTowers !== 0) {
             towers = [
                 ...towers,
                 {
                     lngLat: t.lngLat,
                     label,
                     name,
-                    attackRange,
+                    attackRange: Math.floor(minTowerRangeMetres + Math.random() * (maxTowerRangeMetres + minTowerRangeMetres + 1)) / 1000,
                 },
             ]
-            countTowers -= 1
+            countTowers = countTowers + 1
         }
-        if (countTowers === 0) {
+        if (countTowers === limitTowers) {
             disableDropTower = true
         }
     }
@@ -184,7 +198,8 @@
     /**
      * Trigger an action when getting close to a marker
      */
-    let countEnemies = 0 // number of markers found
+
+    let countTargets = 0 // number of markers found
     $: if (watchedPosition.coords) { // this block is triggered when watchedPosition is updated
         // The tracked position in marker format
         watchedMarker = {
@@ -194,21 +209,41 @@
             },
         }
 
-        countEnemies = 0
-        // Whenever the watched position is updated, check if it is within 10 meters of any marker
-        if (towers.length > 0) {
-            towers.forEach((tower) => {
-                const rhumbDistance = getRhumbDistance([watchedMarker, tower])
-                const threshold = 1
+        countTargets = 0
+        towers.forEach((tower) => {
+            randomEnemies.forEach((enemy) => {
+                const pe = turf.point([enemy.lngLat.lng, enemy.lngLat.lat])
+                const pt = turf.point([tower.lngLat.lng, tower.lngLat.lat])
+                const br = turf.buffer(pt, tower.attackRange, { units: 'kilometers' })
 
-                if (rhumbDistance <= threshold) {
-                    console.log('in range')
+                if (turf.booleanPointInPolygon(pe, br)) {
+                    countTargets += 1
                 }
             })
+        })
+    }
+
+    let countLandmarks = 0
+    $: if (watchedPosition.coords) { // this block is triggered when watchedPosition is updated
+        // The tracked position in marker format
+        watchedMarker = {
+            lngLat: {
+                lng: watchedPosition.coords.longitude,
+                lat: watchedPosition.coords.latitude,
+            },
         }
 
-        // Check for landmarks in range whenever the watched position updates
         checkLandmarksInRange(watchedMarker.lngLat)
+        countLandmarks = 0
+        landmarkFeatures.forEach((landmark) => {
+            const pl = turf.point([landmark.geometry.coordinates[0], landmark.geometry.coordinates[1]])
+            const loc = turf.point([watchedPosition.coords.longitude, watchedPosition.coords.latitude])
+            const pr = turf.buffer(loc, 20, { units: 'kilometers' })
+
+            if (turf.booleanPointInPolygon(pl, pr)) {
+                countLandmarks = countLandmarks + 1
+            }
+        })
     }
 
     // Reactive statement to generate random points when watchedPosition changes
@@ -230,12 +265,10 @@
     function generateRandomPoints(lat, lng) {
         const points = []
         const earthRadius = 6371000 // Earth's radius in meters
-        const maxDistance = 200 // Maximum distance in meters
-        const minEnemies = 1
-        const maxEnemies = 20
-        const countEnemies = Math.floor(minEnemies + Math.random() * (maxEnemies - minEnemies + 1))
+        const maxDistance = 100 // Maximum distance in meters
+        const countTargets = Math.floor(minEnemies + Math.random() * (maxEnemies - minEnemies + 1))
 
-        for (let i = 0; i < countEnemies; i++) {
+        for (let i = 0; i < countTargets; i++) {
             // Generate random distance and angle
             const randomDistance = Math.random() * maxDistance
             const randomAngle = Math.random() * 2 * Math.PI
@@ -362,7 +395,7 @@
                     console.log(towers)
                 }}
             >
-                Drop Towers. Remaining : {countTowers}
+                Drop Towers. Remaining : {limitTowers - countTowers}
             </button>
         </div>
 
@@ -380,8 +413,9 @@
         </div>
 
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Found {countEnemies} Enemies in Range</h1>
-            Counts enemies in tower range
+            <h1 class="font-bold">{countTargets} Targets Engaged</h1>
+            <h1 class="font-bold">{countTowers} of {limitTowers} Towers Deployed</h1>
+            <h1 class="font-bold">{countLandmarks} Landmarks Nearby</h1>
         </div>
         <div class="col-span-4 md:col-span-1 text-center">
             <!-- <Geolocation> tag is used to access the Geolocation API -->
@@ -550,7 +584,7 @@
 
             <GeoJSON
                 id="watchedMarkerBuffer"
-                data={getBuffer(watchedMarker.lngLat, 0.05)}
+                data={getBuffer(watchedMarker.lngLat, 0.1)}
             >
                 <FillLayer
                     paint={{
