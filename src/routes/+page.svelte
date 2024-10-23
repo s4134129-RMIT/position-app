@@ -236,6 +236,8 @@
 
     $: if (error) {
         showModal = true
+        disableMultipleGeolocation = false
+        disableTracking = true
     }
     // Watch a position using Geolocation API if you need continuous updates
     let watchPosition = false
@@ -356,8 +358,8 @@
 
     <h1
         class="font-bold"
-        slot="header">Get your current position on the map.</h1>
-    <div class="text-center font-medium text-red-500">Track Location will be disabled until this is done.</div>
+        slot="header">Enable Position and Location Tracking</h1>
+    <div class="text-center font-medium text-red-500">Please Enable Location. Refresh Page if No Prompt from Device</div>
 
     <!-- on:click declares what to do when the button is clicked -->
     <!-- In the HTML part, {} tells the framework to treat what's inside as code (variables or functions), instead of as strings -->
@@ -371,10 +373,10 @@
             disableMultipleGeolocation = true
         }}
     >
-        Get Position
+        Enable Position
     </button>
 
-    <h1 class="font-bold">Track position while moving</h1>
+    <h1 class="font-bold">Enable Location Tracking</h1>
 
     <button
         class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-primary"
@@ -386,7 +388,7 @@
             disableRespawnEnemies = false
         }}
     >
-        Track
+        Track Location
     </button>
 
 </StartModal>
@@ -559,7 +561,7 @@
                 {lngLat}
                 class="flex items-center justify-center w-8 h-8"
             >
-                <span class="text-2xl">{enemyIcons[Math.floor(1 + Math.random() * (6 + 1 + 1))]}</span>
+                <span class="text-2xl">{enemyIcons[Math.floor(0 + Math.random() * (5 + 0 + 1))]}</span>
                 <Popup
                     openOn="click"
                     offset={[0, -10]}>
