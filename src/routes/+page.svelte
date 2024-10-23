@@ -85,6 +85,7 @@
 
     let showPopup = true
     let showModal = false
+    const enemyIcons = ['👻', '🧛', '🧟', '👽', '👾', '👹']
 
     function closePopup() {
         showPopup = false
@@ -159,103 +160,6 @@
         }
     }
 
-    // Geolocation API related
-    const options = {
-        enableHighAccuracy: true,
-        timeout: Infinity, // milliseconds
-        maximumAge: 0, // milliseconds, 0 disables cached positions
-    }
-    /**
-     * $: indicates a reactive statement, meaning that this block of code is
-     * executed whenever the variable used as the condition changes its value
-     *
-     * In this case: whenever success is set to true, a Position object
-     * has been successfully obtained. Immediately update the relevant variables
-     */
-    $: if (success || error) {
-        // reset the flag
-        getPosition = false
-    }
-
-    $: if (success) {
-        coords = [position.coords.longitude, position.coords.latitude]
-    /*
-        markers = [
-            ...markers,
-            {
-                lngLat: { lng: coords[0], lat: coords[1] },
-                label: 'Current',
-                name: 'Current Position',
-            },
-        ]
-    */
-    }
-    // Watch a position using Geolocation API if you need continuous updates
-    let watchPosition = false
-    let watchedPosition = {}
-    let watchedMarker = {}
-
-    /**
-     * Trigger an action when getting close to a marker
-     */
-
-    let countTargets = 0 // number of markers found
-    $: if (watchedPosition.coords) { // this block is triggered when watchedPosition is updated
-        // The tracked position in marker format
-        watchedMarker = {
-            lngLat: {
-                lng: watchedPosition.coords.longitude,
-                lat: watchedPosition.coords.latitude,
-            },
-        }
-
-        countTargets = 0
-        towers.forEach((tower) => {
-            randomEnemies.forEach((enemy) => {
-                const pe = turf.point([enemy.lngLat.lng, enemy.lngLat.lat])
-                const pt = turf.point([tower.lngLat.lng, tower.lngLat.lat])
-                const br = turf.buffer(pt, tower.attackRange, { units: 'kilometers' })
-
-                if (turf.booleanPointInPolygon(pe, br)) {
-                    countTargets += 1
-                }
-            })
-        })
-    }
-
-    let countLandmarks = 0
-    $: if (watchedPosition.coords) { // this block is triggered when watchedPosition is updated
-        // The tracked position in marker format
-        watchedMarker = {
-            lngLat: {
-                lng: watchedPosition.coords.longitude,
-                lat: watchedPosition.coords.latitude,
-            },
-        }
-
-        checkLandmarksInRange(watchedMarker.lngLat)
-        countLandmarks = 0
-        landmarkFeatures.forEach((landmark) => {
-            const pl = turf.point([landmark.geometry.coordinates[0], landmark.geometry.coordinates[1]])
-            const loc = turf.point([watchedPosition.coords.longitude, watchedPosition.coords.latitude])
-            const pr = turf.buffer(loc, 20, { units: 'kilometers' })
-
-            if (turf.booleanPointInPolygon(pl, pr)) {
-                countLandmarks = countLandmarks + 1
-            }
-        })
-    }
-
-    // Reactive statement to generate random points when watchedPosition changes
-    $: if (watchedPosition.coords) {
-        const currentTime = Date.now()
-        if (currentTime - lastUpdateTime >= UPDATE_INTERVAL) {
-            const { latitude, longitude } = watchedPosition.coords
-            randomEnemies = generateRandomPoints(latitude, longitude)
-            lastUpdateTime = currentTime
-        }
-    }
-
     /**
      * Generates 15 random points around the given location within a 200-meter radius
      * @param {number} lat - Latitude of the current location
@@ -295,6 +199,112 @@
         randomEnemies = generateRandomPoints(wm.lngLat.lat, wm.lngLat.lng)
     }
 
+    // Geolocation API related
+    const options = {
+        enableHighAccuracy: true,
+        timeout: Infinity, // milliseconds
+        maximumAge: 0, // milliseconds, 0 disables cached positions
+    }
+
+    let accuracy = ''
+    /**
+     * $: indicates a reactive statement, meaning that this block of code is
+     * executed whenever the variable used as the condition changes its value
+     *
+     * In this case: whenever success is set to true, a Position object
+     * has been successfully obtained. Immediately update the relevant variables
+     */
+    $: if (success || error) {
+        // reset the flag
+        getPosition = false
+    }
+
+    $: if (success) {
+        coords = [position.coords.longitude, position.coords.latitude]
+        accuracy = position.coords.accuracy
+    /*
+        markers = [
+            ...markers,
+            {
+                lngLat: { lng: coords[0], lat: coords[1] },
+                label: 'Current',
+                name: 'Current Position',
+            },
+        ]
+    */
+    }
+
+    $: if (error) {
+        showModal = true
+    }
+    // Watch a position using Geolocation API if you need continuous updates
+    let watchPosition = false
+    let watchedPosition = {}
+    let watchedMarker = {}
+    /**
+     * Trigger an action when getting close to a marker
+     */
+
+    let countLandmarks = 0
+    $: if (watchedPosition.coords) { // this block is triggered when watchedPosition is updated
+        // The tracked position in marker format
+        watchedMarker = {
+            lngLat: {
+                lng: watchedPosition.coords.longitude,
+                lat: watchedPosition.coords.latitude,
+            },
+        }
+
+        checkLandmarksInRange(watchedMarker.lngLat)
+        countLandmarks = 0
+        landmarkFeatures.forEach((landmark) => {
+            const pl = turf.point([landmark.geometry.coordinates[0], landmark.geometry.coordinates[1]])
+            const loc = turf.point([watchedPosition.coords.longitude, watchedPosition.coords.latitude])
+            const pr = turf.buffer(loc, 20, { units: 'kilometers' })
+
+            if (turf.booleanPointInPolygon(pl, pr)) {
+                countLandmarks = countLandmarks + 1
+            }
+        })
+
+        const currentTime = Date.now()
+        if (currentTime - lastUpdateTime >= UPDATE_INTERVAL) {
+            const { latitude, longitude } = watchedPosition.coords
+            randomEnemies = generateRandomPoints(latitude, longitude)
+            lastUpdateTime = currentTime
+        }
+    }
+    let countTargets = 0 // number of markers found
+    $: if (watchedPosition.coords && towers.length && randomEnemies.length) {
+        watchedMarker = {
+            lngLat: {
+                lng: watchedPosition.coords.longitude,
+                lat: watchedPosition.coords.latitude,
+            },
+        }
+
+        countTargets = 0
+        const towerRanges = []
+
+        towers.forEach((tower) => {
+            const pt = turf.point([tower.lngLat.lng, tower.lngLat.lat])
+            const bf = turf.buffer(pt, tower.attackRange, { units: 'kilometers' })
+            towerRanges.push(bf)
+        })
+
+        const towerRangeFeature = turf.featureCollection(towerRanges)
+        const towerCoverage = turf.dissolve(towerRangeFeature)
+        // console.log(towerCoverage)
+
+        randomEnemies.forEach((enemy) => {
+            const pe = turf.point([enemy.lngLat.lng, enemy.lngLat.lat])
+
+            if (turf.booleanPointInPolygon(pe, towerCoverage.features[0])) {
+                countTargets += 1
+            }
+        })
+    }
+
     /**
      * Variables can be initialised without a value and populated later
      * WARNING: this can lead to errors if the variable is used before being
@@ -322,8 +332,8 @@
             const data = await response.json()
             landmarkFeatures = data.features
             debugInfo = `Loaded ${landmarkFeatures.length} features`
-            console.log('First landmark feature:', landmarkFeatures[0])
-            console.log('Coordinates of first feature:', landmarkFeatures[0]?.geometry?.coordinates)
+        // console.log('First landmark feature:', landmarkFeatures[0])
+            // console.log('Coordinates of first feature:', landmarkFeatures[0]?.geometry?.coordinates)
         }
         catch (error) {
             console.error('Error loading landmark GeoJSON data:', error)
@@ -391,8 +401,8 @@
                 class="btn sm:btn-sm md:btn-md lg:btn-lg btn-accent"
                 disabled={disableDropTower}
                 on:click={() => {
-                    addTower(watchedMarker, 'label', 'name', Math.floor(50 + Math.random() * (75 - 50 + 1)) / 1000)
-                    console.log(towers)
+                    addTower(watchedMarker, 'label', 'name', Math.floor(minTowerRangeMetres + Math.random() * (maxTowerRangeMetres - minTowerRangeMetres + 1)) / 1000)
+                // console.log(towers)
                 }}
             >
                 Drop Towers. Remaining : {limitTowers - countTowers}
@@ -405,7 +415,6 @@
                 disabled={disableRespawnEnemies}
                 on:click={() => {
                     updateRandomPoints(watchedMarker)
-                    console.log(randomEnemies)
                 }}
             >
                 Respawn Enemies. Current: {randomEnemies.length}
@@ -413,7 +422,7 @@
         </div>
 
         <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">{countTargets} Targets Engaged</h1>
+            <h1 class="font-bold">Engaging {countTargets} Enemies </h1>
             <h1 class="font-bold">{countTowers} of {limitTowers} Towers Deployed</h1>
             <h1 class="font-bold">{countLandmarks} Landmarks Nearby</h1>
         </div>
@@ -426,6 +435,7 @@
                 {getPosition}
                 options={options}
                 bind:position
+                bind:accuracy
                 let:loading
                 bind:success
                 bind:error
@@ -448,6 +458,7 @@
             </Geolocation>
 
             <p class="break-words text-left">Coordinates: {coords}</p>
+            <p class="break-words text-left">Accuracy: {accuracy}</p>
             <!-- Objects cannot be directly rendered, use JSON.stringify() to convert it to a string -->
             <p class="break-words text-left">Position: {JSON.stringify(position)}</p>
         </div>
@@ -480,15 +491,8 @@
         standardControls
         style="https://tiles.basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
         bind:bounds
-        zoom={10}
+        zoom={12}
     >
-        <Marker
-            lngLat={[144.97, -37.81]}
-            class="w-8 h-8 rounded-full bg-blue-500 cursor-pointer"
-        />
-
-        <!-- ... other markers ... -->
-
         <!-- Custom control buttons -->
         <Control class="flex flex-col gap-y-2">
             <ControlGroup>
@@ -515,17 +519,16 @@
             {#each towers as { lngLat, attackRange }, i (i)}
                 <Marker
                     {lngLat}
-                    class="grid h-8 w-8 place-items-center rounded-full
-                        border border-white-200
-                        bg-orange-900 text-white shadow-2xl focus:outline-2 focus:outline-white"
+                    class="flex items-center justify-center w-12 h-12"
                 >
-                    <span>
-                        {i}
-                    </span>
+                    <span class="text-3xl">🗼</span>
                     <Popup
-                        openOn="hover"
+                        openOn="click"
                         offset={[0, -10]}>
-                        <div class="text-lg font-bold">Tower {i} Initialized</div>
+                        <div class="break-words text-lg font-bold">
+                            Tower {i} Initialized
+                            KM Range: {attackRange * 1000}
+                        </div>
                     </Popup>
                 </Marker>
                 <GeoJSON
@@ -556,9 +559,9 @@
                 {lngLat}
                 class="flex items-center justify-center w-8 h-8"
             >
-                <span class="text-2xl">🧟</span>
+                <span class="text-2xl">{enemyIcons[Math.floor(1 + Math.random() * (6 + 1 + 1))]}</span>
                 <Popup
-                    openOn="hover"
+                    openOn="click"
                     offset={[0, -10]}>
                     <div class="text-sm">Zombie {i}</div>
                 </Popup>
