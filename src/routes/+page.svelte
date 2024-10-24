@@ -1,4 +1,3 @@
-/** eslint-disable unused-imports/no-unused-vars */
 <!-- <script> tag includes JavaScript code -->
 <script>
     import { onMount } from 'svelte'
@@ -7,7 +6,6 @@
         Control,
         ControlButton,
         ControlGroup,
-        DefaultMarker,
         FillLayer,
         GeoJSON,
         hoverStateFilter,
@@ -49,7 +47,7 @@
                 lat: -37.80967,
             },
             label: 'Tower 1',
-            name: 'My Tower # 1',
+            name: 'Base Tower',
             attackRange: 0.01,
         },
     ]
@@ -61,14 +59,15 @@
 
     let hoveredLandmark = null
     let lastUpdateTime = 0
-    const UPDATE_INTERVAL = 1 * 60 * 1000 // 20 minutes in milliseconds
+    const UPDATE_INTERVAL = 1 * 60 * 1000 // minutes in milliseconds
     const limitTowers = 5
     let countTowers = 0
+    const playerRange = 0.5 // KM
 
     const minEnemies = 5
     const maxEnemies = 50
-    const minTowerRangeMetres = 5
-    const maxTowerRangeMetres = 10
+    const minTowerRangeMetres = 10
+    const maxTowerRangeMetres = 25
 
     // buttons and events
     let disableTracking = true
@@ -79,10 +78,12 @@
     let position = {}
     let coords = []
     let landmarkFeatures = []
+    let zoneData
     let randomEnemies = []
     // Extent of the map
     let bounds = getMapBounds(towers)
     let closestLandmark = null
+    let closestLandmarkFeature
 
     let showPopup = true
     let showModal = false
@@ -98,7 +99,7 @@
             return
         }
 
-        const bufferRadius = 1 // 50 meters in degrees, matching your buffer size
+        const bufferRadius = playerRange
         let minDistance = Infinity
         closestLandmark = null
 
@@ -110,10 +111,11 @@
 
             if (distance <= bufferRadius && distance < minDistance) {
                 minDistance = distance
+                closestLandmarkFeature = feature
                 closestLandmark = {
                     feature_na: feature.properties.feature_na || 'Unnamed',
-                    theme: feature.properties.theme || 'No theme',
-                    subtheme: feature.properties.sub_theme || 'No subtheme',
+                    type: feature.properties.theme || 'No type',
+                    subtype: feature.properties.sub_theme || 'No subtype',
                 }
             }
         })
@@ -208,6 +210,8 @@
     }
 
     let accuracy = ''
+    let heading = ''
+    let speed = ''
     /**
      * $: indicates a reactive statement, meaning that this block of code is
      * executed whenever the variable used as the condition changes its value
@@ -223,6 +227,8 @@
     $: if (success) {
         coords = [position.coords.longitude, position.coords.latitude]
         accuracy = position.coords.accuracy
+        heading = position.coords.heading
+        speed = position.coords.speed
     /*
         markers = [
             ...markers,
@@ -263,7 +269,7 @@
         landmarkFeatures.forEach((landmark) => {
             const pl = turf.point([landmark.geometry.coordinates[0], landmark.geometry.coordinates[1]])
             const loc = turf.point([watchedPosition.coords.longitude, watchedPosition.coords.latitude])
-            const pr = turf.buffer(loc, 20, { units: 'kilometers' })
+            const pr = turf.buffer(loc, playerRange, { units: 'kilometers' })
 
             if (turf.booleanPointInPolygon(pl, pr)) {
                 countLandmarks = countLandmarks + 1
@@ -282,36 +288,6 @@
      */
     let countTargets = 0 // number of markers found
     let currentTargets = null
-
-    /*
-    $: if (watchedPosition.coords && towers.length && randomEnemies.length) {
-        watchedMarker = {
-            lngLat: {
-                lng: watchedPosition.coords.longitude,
-                lat: watchedPosition.coords.latitude,
-            },
-        }
-
-        countTargets = 0
-        const towerRanges = []
-
-        towers.forEach((tower) => {
-            const pt = turf.point([tower.lngLat.lng, tower.lngLat.lat])
-            const bf = turf.buffer(pt, tower.attackRange, { units: 'kilometers' })
-            towerRanges.push(bf)
-        })
-
-        const towerRangeFeature = turf.featureCollection(towerRanges)
-        const towerCoverage = turf.dissolve(towerRangeFeature)
-
-        randomEnemies.forEach((enemy) => {
-            const pe = turf.point([enemy.lngLat.lng, enemy.lngLat.lat])
-
-            if (turf.booleanPointInPolygon(pe, towerCoverage.features[0])) {
-                countTargets += 1
-            }
-        })
-    } */
 
     $: if (watchedPosition.coords && towers.length && randomEnemies.length) {
         watchedMarker = {
@@ -337,7 +313,6 @@
         })
         const pe = turf.points(pa)
         currentTargets = turf.pointsWithinPolygon(pe, towerCoverage)
-        console.log(currentTargets)
 
         if (currentTargets.features.length) {
             countTargets = currentTargets.features.length
@@ -370,16 +345,26 @@
     onMount(async () => {
         showModal = true
         try {
-            const response = await fetch('landmarks1011.geojson')
-            const data = await response.json()
-            landmarkFeatures = data.features
-            debugInfo = `Loaded ${landmarkFeatures.length} features`
-        // console.log('First landmark feature:', landmarkFeatures[0])
-            // console.log('Coordinates of first feature:', landmarkFeatures[0]?.geometry?.coordinates)
+            const landmarksResponse = await fetch('landmarks1011.geojson')
+            const landmarksData = await landmarksResponse.json()
+            landmarkFeatures = landmarksData.features
+        // debugInfo = `Loaded ${landmarkFeatures.length} features`
         }
         catch (error) {
             console.error('Error loading landmark GeoJSON data:', error)
             debugInfo = `Error: ${error.message}`
+        }
+
+        try {
+            const boundsResponse = await fetch('melbourne.geojson')
+            zoneData = await boundsResponse.json()
+            const boundsFeatures = zoneData.features
+            // debugInfo = `Loaded ${boundsFeatures.length} zones`
+            console.log('Coordinates of first zone:', boundsFeatures[0]?.geometry?.coordinates)
+        }
+        catch (error) {
+            console.error('Error loading bounds GeoJSON data:', error)
+        // debugInfo = `Error: ${error.message}`
         }
     })
 
@@ -394,18 +379,25 @@
 
 <StartModal
     class="modal-middle"
-    bind:showModal>
+    bind:showModal
+    bind:error>
 
     <h1
         class="font-bold"
-        slot="header">Enable Position and Location Tracking</h1>
-    <div class="text-center font-medium text-red-500">Please Enable Location. Refresh Page if No Prompt from Device</div>
+        slot="header">
+        POSITION AND LOCATION TRACKING
+    </h1>
+    {#if error}
+        <div class="text-center font-medium text-red-500">An error occurred. Error code {error.code}: {error.message}.</div>
+        <div class="text-center font-medium text-red-500">Please Enable Location. Refresh Page if No Prompt from Device</div>
+    {/if}
 
     <!-- on:click declares what to do when the button is clicked -->
     <!-- In the HTML part, {} tells the framework to treat what's inside as code (variables or functions), instead of as strings -->
     <!-- () => {} is an arrow function, almost equivalent to function foo() {} -->
+    <h1 class="font-bold">Enable Position</h1>
     <button
-        class="btn  sm:btn-sm md:btn-md lg:btn-lg btn-primary"
+        class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-primary"
         disabled={disableMultipleGeolocation}
         on:click={() => {
             getPosition = true
@@ -444,7 +436,6 @@
                 disabled={disableDropTower}
                 on:click={() => {
                     addTower(watchedMarker, 'label', 'name', Math.floor(minTowerRangeMetres + Math.random() * (maxTowerRangeMetres - minTowerRangeMetres + 1)) / 1000)
-                // console.log(towers)
                 }}
             >
                 Drop Towers. Remaining : {limitTowers - countTowers}
@@ -463,12 +454,12 @@
             </button>
         </div>
 
-        <div class="col-span-4 md:col-span-1 text-center">
-            <h1 class="font-bold">Engaging {countTargets} Enemies </h1>
+        <div class="col-span-2 md:col-span-1 text-center">
+            <h1 class="font-bold">{countTargets} Enemies Engaged</h1>
             <h1 class="font-bold">{countTowers} of {limitTowers} Towers Deployed</h1>
             <h1 class="font-bold">{countLandmarks} Landmarks Nearby</h1>
         </div>
-        <div class="col-span-4 md:col-span-1 text-center">
+        <div class="col-span-2 md:col-span-1 text-center">
             <!-- <Geolocation> tag is used to access the Geolocation API -->
             <!-- {getPosition} is equivalent to getPosition={getPosition} -->
             <!-- bind:variable associates the parameter with the variable with the same name declared in <script> reactively -->
@@ -478,9 +469,11 @@
                 options={options}
                 bind:position
                 bind:accuracy
-                let:loading
+                bind:speed
+                bind:heading
                 bind:success
                 bind:error
+                let:loading
                 let:notSupported
             >
                 <!-- If-else block syntax -->
@@ -499,10 +492,10 @@
                 {/if}
             </Geolocation>
 
-            <p class="break-words text-left">Coordinates: {coords}</p>
-            <p class="break-words text-left">Accuracy: {accuracy}</p>
-            <!-- Objects cannot be directly rendered, use JSON.stringify() to convert it to a string -->
-            <p class="break-words text-left">Position: {JSON.stringify(position)}</p>
+            <p class="break-words text-left">Initial Position {coords} | Accuracy: {accuracy}m</p>
+            {#if heading || speed}
+                <p class="break-words text-left">Heading: {heading} | Speed: {speed} </p>
+            {/if}
         </div>
 
         <!-- This section demonstrates how to get automatically updated user location -->
@@ -512,12 +505,22 @@
                 getPosition={watchPosition}
                 options={options}
                 watch={true}
+                bind:watchedPosition
                 on:position={(e) => {
                     watchedPosition = e.detail
                 }}
             />
+            {#if watchedPosition.coords}
+                <h1 class="break-words text-left">({watchedPosition.coords.longitude}, {watchedPosition.coords.latitude}) | Accuracy: {watchedPosition.coords.accuracy}m </h1>
+                {#if watchedPosition.coords.altitude}
+                    <h1 class="break-words text-left">Updated Altitude: {watchedPosition.coords.altitude} | Altitude Accuracy: {watchedPosition.coords.altitudeAccuracy}m </h1>
+                {/if}
+                {#if watchedPosition.coords.heading || watchedPosition.coords.speed}
+                    <h1 class="break-words text-left">Heading: {watchedPosition.coords.heading} | Speed: {watchedPosition.coords.speed}</h1>
+                    <!-- p class="break-words text-left">{JSON.stringify(watchedPosition)}</p -->
+                {/if}
+            {/if}
 
-            <p class="break-words text-left">watchedPosition: {JSON.stringify(watchedPosition)}</p>
         </div>
 
     </div>
@@ -547,22 +550,135 @@
                 </ControlButton>
             </ControlGroup>
         </Control>
-        <!-- Display the watched position as a marker -->
-        {#if watchedMarker.lngLat}
+        <Control class="flex flex-col gap-y-2">
+            <ControlGroup>
+                <ControlButton
+                    on:click={() => {
+                        showModal = true
+                        disableTracking = false
+                    }}
+                >
+                    Modal
+                </ControlButton>
+            </ControlGroup>
+        </Control>
 
-            <DefaultMarker lngLat={watchedMarker.lngLat}>
-                <Popup offset={[0, -10]}>
-                    <div class="text-lg font-bold">You</div>
-                </Popup>
-            </DefaultMarker>
+        <!-- Towers -->
+        {#if towers.length > 0}
+            {#each towers as { lngLat, attackRange }, i (i)}
+                <Marker
+                    {lngLat}
+                    class="grid h-8 w-8 place-items-center rounded-full
+                        border border-white-200
+                        bg-orange-900 text-white shadow-2xl focus:outline-2 focus:outline-white"
+                >
+                    <span>
+                        {i}
+                    </span>
+                    <Popup
+                        openOn="click"
+                        offset={[0, -10]}>
+                        <div class="break-words text-lg font-bold">
+                            Tower {i} Initialized <br />
+                            KM Range: {attackRange * 1000}
+                        </div>
+                    </Popup>
+                </Marker>
+                <GeoJSON
+                    id="towerBuffer{i}"
+                    data={getBuffer(lngLat, attackRange)}
+                >
+                    <FillLayer
+                        paint={{
+                            'fill-color': hoverStateFilter('red', 'yellow'),
+                            'fill-opacity': 0.1,
+                        }}
+                        beforeLayerType="symbol"
+                        manageHoverState
+                    >
+                    </FillLayer>
+                    <LineLayer
+                        layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                        paint={{ 'line-color': 'red', 'line-width': 0.3 }}
+                        beforeLayerType="symbol"
+                    />
+                </GeoJSON>
 
+            {/each}
+        {/if}
+
+        <!-- Targets -->
+
+        <!-- Closest Landmark -->
+        {#if closestLandmarkFeature}
+            <Marker
+                lngLat={closestLandmarkFeature.geometry.coordinates}
+                class="grid h-8 w-8 place-items-center rounded-full
+                    border border-white-200
+                    bg-yellow-500 text-white shadow-2xl focus:outline-4 focus:outline-white"
+            >
+            </Marker>
+        {/if}
+
+        <!-- if Suburb Data is Loaded -->
+        {#if zoneData}
             <GeoJSON
-                id="watchedMarkerBuffer"
-                data={getBuffer(watchedMarker.lngLat, 0.10)}
+                id="zoneData"
+                data={zoneData}
+                promoteId="name"
             >
                 <FillLayer
                     paint={{
-                        'fill-color': hoverStateFilter('blue', 'yellow'),
+                        'fill-color': hoverStateFilter('white', 'yellow'),
+                        'fill-opacity': 0.1,
+                    }}
+                    beforeLayerType="symbol"
+                    manageHoverState
+                >
+                    <Popup
+                        openOn="hover"
+                        let:data
+                    >
+                        {@const props = data?.properties}
+                        {#if props}
+                            <div class="flex flex-col gap-2">
+                                <p>{props.name}</p>
+                            </div>
+                        {/if}
+                    </Popup>
+                </FillLayer>
+                <LineLayer
+                    layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                    paint={{ 'line-color': 'white', 'line-width': 3 }}
+                    beforeLayerType="symbol"
+                />
+            </GeoJSON>
+        {/if}
+
+        <!-- if watched position is updated -->
+        {#if watchedMarker.lngLat}
+
+            <Marker
+                lngLat={watchedMarker.lngLat}
+                class="grid h-12 w-12 place-items-center rounded-full
+                    border border-white-200
+                    bg-green-400 text-white shadow-2xl focus:outline-2 focus:outline-white"
+            >
+                <span class="text-lg">🪖</span>
+                <Popup
+                    openOn="click"
+                    offset={[0, -10]}>
+                    <div class="break-words text-lg text-green-900 font-bold">PLAYER</div>
+                </Popup>
+            </Marker>
+
+            <GeoJSON
+                id="watchedMarkerBuffer"
+                data={getBuffer(watchedMarker.lngLat, playerRange)}
+            >
+                <FillLayer
+                    paint={{
+                        'fill-color': hoverStateFilter('green', 'yellow'),
                         'fill-opacity': 0.2,
                     }}
                     beforeLayerType="symbol"
@@ -581,7 +697,7 @@
                                 <div><strong>Sub_theme:</strong> {closestLandmark.subtheme}</div>
                             </div>
                             <button
-                                class="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                class="btn btn-primary"
                                 on:click={closePopup}
                             >
                                 Repair
@@ -591,7 +707,7 @@
                 </FillLayer>
                 <LineLayer
                     layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-                    paint={{ 'line-color': 'blue', 'line-width': 3 }}
+                    paint={{ 'line-color': 'green', 'line-width': 3 }}
                     beforeLayerType="symbol"
                 />
             </GeoJSON>
@@ -605,48 +721,6 @@
         <!-- For-each loop syntax -->
         <!-- markers is an object, lngLat, label, name are the fields in the object -->
         <!-- i is the index, () indicates the unique ID for each item, duplicate IDs will lead to errors -->
-        {#if towers.length > 0}
-            {#each towers as { lngLat, attackRange }, i (i)}
-                <Marker
-                    {lngLat}
-                    class="grid h-8 w-8 place-items-center rounded-full
-                        border border-white-200
-                        bg-orange-900 text-white shadow-2xl focus:outline-2 focus:outline-white"
-                >
-                    <span>
-                        {i}
-                    </span>
-                    <Popup
-                        openOn="click"
-                        offset={[0, -10]}>
-                        <div class="break-words text-lg font-bold">
-                            Tower {i} Initialized
-                            KM Range: {attackRange * 1000}
-                        </div>
-                    </Popup>
-                </Marker>
-                <GeoJSON
-                    id="towerBuffer{i}"
-                    data={getBuffer(lngLat, attackRange)}
-                >
-                    <FillLayer
-                        paint={{
-                            'fill-color': hoverStateFilter('green', 'yellow'),
-                            'fill-opacity': 0.3,
-                        }}
-                        beforeLayerType="symbol"
-                        manageHoverState
-                    >
-                    </FillLayer>
-                    <LineLayer
-                        layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-                        paint={{ 'line-color': 'green', 'line-width': 0.2 }}
-                        beforeLayerType="symbol"
-                    />
-                </GeoJSON>
-
-            {/each}
-        {/if}
 
         {#each randomEnemies as { lngLat }, i (i)}
             <Marker
@@ -668,8 +742,15 @@
                 class="w-4 h-4 rounded-full bg-red-500 cursor-pointer"
                 on:mouseenter={() => handleMouseEnter(feature)}
                 on:mouseleave={handleMouseLeave}
-            />
+            >
+                <Popup
+                    openOn="click"
+                    offset={[0, -10]}>
+                    <div class="text-lg">Landmark {feature.id} </div>
+                </Popup>
+            </Marker>
         {/each}
+
     </MapLibre>
 
     <div class="absolute top-4 right-4 bg-white p-2 rounded shadow">

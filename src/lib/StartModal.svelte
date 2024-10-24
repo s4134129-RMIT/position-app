@@ -24,10 +24,11 @@
         <hr />
         <slot />
         <div class="modal-action">
+            <hr />
             <form method="dialog">
                 <!-- svelte-ignore a11y-autofocus -->
                 <button
-                    class="btn btn-success"
+                    class="btn btn-primary"
                     autofocus
                     on:click={() => dialog.close()}>close modal</button>
             </form>
