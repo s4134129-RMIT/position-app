@@ -27,7 +27,7 @@
             <form method="dialog">
                 <!-- svelte-ignore a11y-autofocus -->
                 <button
-                    class="btn btn-neutral"
+                    class="btn btn-success"
                     autofocus
                     on:click={() => dialog.close()}>close modal</button>
             </form>

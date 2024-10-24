@@ -1,3 +1,4 @@
+/** eslint-disable unused-imports/no-unused-vars */
 <!-- <script> tag includes JavaScript code -->
 <script>
     import { onMount } from 'svelte'
@@ -203,7 +204,7 @@
     const options = {
         enableHighAccuracy: true,
         timeout: Infinity, // milliseconds
-        maximumAge: 0, // milliseconds, 0 disables cached positions
+        maximumAge: 500, // milliseconds, 0 disables cached positions
     }
 
     let accuracy = ''
@@ -276,7 +277,13 @@
             lastUpdateTime = currentTime
         }
     }
+    /**
+     * Point in Polygon
+     */
     let countTargets = 0 // number of markers found
+    let currentTargets = null
+
+    /*
     $: if (watchedPosition.coords && towers.length && randomEnemies.length) {
         watchedMarker = {
             lngLat: {
@@ -296,7 +303,6 @@
 
         const towerRangeFeature = turf.featureCollection(towerRanges)
         const towerCoverage = turf.dissolve(towerRangeFeature)
-        // console.log(towerCoverage)
 
         randomEnemies.forEach((enemy) => {
             const pe = turf.point([enemy.lngLat.lng, enemy.lngLat.lat])
@@ -305,6 +311,40 @@
                 countTargets += 1
             }
         })
+    } */
+
+    $: if (watchedPosition.coords && towers.length && randomEnemies.length) {
+        watchedMarker = {
+            lngLat: {
+                lng: watchedPosition.coords.longitude,
+                lat: watchedPosition.coords.latitude,
+            },
+        }
+
+        const towerRanges = []
+        towers.forEach((tower) => {
+            const pt = turf.point([tower.lngLat.lng, tower.lngLat.lat])
+            const bf = turf.buffer(pt, tower.attackRange, { units: 'kilometers' })
+            towerRanges.push(bf)
+        })
+
+        const pa = []
+        const towerRangeFeature = turf.featureCollection(towerRanges)
+        const towerCoverage = turf.dissolve(towerRangeFeature)
+
+        randomEnemies.forEach((enemy) => {
+            pa.push([enemy.lngLat.lng, enemy.lngLat.lat])
+        })
+        const pe = turf.points(pa)
+        currentTargets = turf.pointsWithinPolygon(pe, towerCoverage)
+        console.log(currentTargets)
+
+        if (currentTargets.features.length) {
+            countTargets = currentTargets.features.length
+        }
+        else {
+            countTargets = 0
+        }
     }
 
     /**
@@ -365,7 +405,7 @@
     <!-- In the HTML part, {} tells the framework to treat what's inside as code (variables or functions), instead of as strings -->
     <!-- () => {} is an arrow function, almost equivalent to function foo() {} -->
     <button
-        class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-primary"
+        class="btn  sm:btn-sm md:btn-md lg:btn-lg btn-primary"
         disabled={disableMultipleGeolocation}
         on:click={() => {
             getPosition = true
@@ -379,7 +419,7 @@
     <h1 class="font-bold">Enable Location Tracking</h1>
 
     <button
-        class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-primary"
+        class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
         disabled={disableTracking}
         on:click={() => {
             watchPosition = true
@@ -400,7 +440,7 @@
     <div class="grid grid-cols-4">
         <div class="col-span-2 md:col-span-1 text-center">
             <button
-                class="btn sm:btn-sm md:btn-md lg:btn-lg btn-accent"
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-accent"
                 disabled={disableDropTower}
                 on:click={() => {
                     addTower(watchedMarker, 'label', 'name', Math.floor(minTowerRangeMetres + Math.random() * (maxTowerRangeMetres - minTowerRangeMetres + 1)) / 1000)
@@ -413,7 +453,7 @@
 
         <div class="col-span-2 md:col-span-1 text-center">
             <button
-                class="btn sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
                 disabled={disableRespawnEnemies}
                 on:click={() => {
                     updateRandomPoints(watchedMarker)
@@ -491,7 +531,7 @@
         center={[144.97, -37.81]}
         class="map flex-grow min-h-[500px]"
         standardControls
-        style="https://tiles.basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+        style="https://tiles.basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
         bind:bounds
         zoom={12}
     >
@@ -507,7 +547,55 @@
                 </ControlButton>
             </ControlGroup>
         </Control>
+        <!-- Display the watched position as a marker -->
+        {#if watchedMarker.lngLat}
 
+            <DefaultMarker lngLat={watchedMarker.lngLat}>
+                <Popup offset={[0, -10]}>
+                    <div class="text-lg font-bold">You</div>
+                </Popup>
+            </DefaultMarker>
+
+            <GeoJSON
+                id="watchedMarkerBuffer"
+                data={getBuffer(watchedMarker.lngLat, 0.10)}
+            >
+                <FillLayer
+                    paint={{
+                        'fill-color': hoverStateFilter('blue', 'yellow'),
+                        'fill-opacity': 0.2,
+                    }}
+                    beforeLayerType="symbol"
+                    manageHoverState
+                >
+                    {#if closestLandmark && showPopup}
+                        <Popup
+                            lngLat={watchedMarker.lngLat}
+                            closeButton={false}
+                            closeOnClick={false}
+                        >
+                            <div class="text-lg font-bold">🔧Repairable Tower:</div>
+                            <div class="mt-2">
+                                <div><strong>Name:</strong> {closestLandmark.feature_na}</div>
+                                <div><strong>Theme:</strong> {closestLandmark.theme}</div>
+                                <div><strong>Sub_theme:</strong> {closestLandmark.subtheme}</div>
+                            </div>
+                            <button
+                                class="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                on:click={closePopup}
+                            >
+                                Repair
+                            </button>
+                        </Popup>
+                    {/if}
+                </FillLayer>
+                <LineLayer
+                    layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                    paint={{ 'line-color': 'blue', 'line-width': 3 }}
+                    beforeLayerType="symbol"
+                />
+            </GeoJSON>
+        {/if}
         <!-- A map event to add a marker when clicked -->
         <!-- MapEvents on:click={event => addMarker(event, 'Added', 'This is an added marker')} / -->
 
@@ -521,9 +609,13 @@
             {#each towers as { lngLat, attackRange }, i (i)}
                 <Marker
                     {lngLat}
-                    class="flex items-center justify-center w-12 h-12"
+                    class="grid h-8 w-8 place-items-center rounded-full
+                        border border-white-200
+                        bg-orange-900 text-white shadow-2xl focus:outline-2 focus:outline-white"
                 >
-                    <span class="text-3xl">🗼</span>
+                    <span>
+                        {i}
+                    </span>
                     <Popup
                         openOn="click"
                         offset={[0, -10]}>
@@ -565,7 +657,7 @@
                 <Popup
                     openOn="click"
                     offset={[0, -10]}>
-                    <div class="text-sm">Zombie {i}</div>
+                    <div class="text-lg">Enemy {i}</div>
                 </Popup>
             </Marker>
         {/each}
@@ -578,56 +670,6 @@
                 on:mouseleave={handleMouseLeave}
             />
         {/each}
-        <!-- Display the watched position as a marker -->
-        {#if watchedMarker.lngLat}
-
-            <DefaultMarker lngLat={watchedMarker.lngLat}>
-                <Popup offset={[0, -10]}>
-                    <div class="text-lg font-bold">You</div>
-                </Popup>
-            </DefaultMarker>
-
-            <GeoJSON
-                id="watchedMarkerBuffer"
-                data={getBuffer(watchedMarker.lngLat, 0.1)}
-            >
-                <FillLayer
-                    paint={{
-                        'fill-color': hoverStateFilter('blue', 'yellow'),
-                        'fill-opacity': 0.2,
-                    }}
-                    beforeLayerType="symbol"
-                    manageHoverState
-                >
-                    {#if closestLandmark && showPopup}
-                        <Popup
-                            lngLat={watchedMarker.lngLat}
-                            closeButton={false}
-                            closeOnClick={false}
-                        >
-                            <div class="text-lg font-bold">🔧Repairable Tower:</div>
-                            <div class="mt-2">
-                                <div><strong>Name:</strong> {closestLandmark.feature_na}</div>
-                                <div><strong>Theme:</strong> {closestLandmark.theme}</div>
-                                <div><strong>Sub_theme:</strong> {closestLandmark.subtheme}</div>
-                            </div>
-                            <button
-                                class="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                                on:click={closePopup}
-                            >
-                                Repair
-                            </button>
-                        </Popup>
-                    {/if}
-                </FillLayer>
-                <LineLayer
-                    layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-                    paint={{ 'line-color': 'blue', 'line-width': 3 }}
-                    beforeLayerType="symbol"
-                />
-            </GeoJSON>
-        {/if}
-
     </MapLibre>
 
     <div class="absolute top-4 right-4 bg-white p-2 rounded shadow">
