@@ -62,6 +62,8 @@
     const limitTowers = 5
     let countTowers = 0
     const playerRange = 0.5 // KM
+    let countRepairs = 0
+    let resourceTokens = 0
 
     const minEnemies = 5
     const maxEnemies = 50
@@ -87,10 +89,7 @@
     let showPopup = true
     let showModal = false
     const enemyIcons = ['👻', '🧛', '🧟', '👽', '👾', '👹']
-
-    function closePopup() {
-        showPopup = false
-    }
+    const statusIcons = ['🔥', '❄️', '⚡', '☠️', '💤', '🩸']
 
     // Add this function to check for the closest landmark in range
     function checkLandmarksInRange(watchedMarkerLngLat) {
@@ -396,7 +395,7 @@
     <!-- () => {} is an arrow function, almost equivalent to function foo() {} -->
     <h1 class="font-bold">Enable Position</h1>
     <button
-        class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-primary"
+        class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-accent"
         disabled={disableMultipleGeolocation}
         on:click={() => {
             getPosition = true
@@ -523,6 +522,18 @@
             </Marker>
         {/if}
 
+        <!-- Targeted features -->
+        {#if currentTargets}
+            {#each currentTargets.features as feature (feature)}
+                <Marker
+                    lngLat={feature.geometry.coordinates}
+                    class="grid h-12 w-12 place-items-center rounded-full"
+                >
+                    <span class="flex items-center w-12 h-12">{statusIcons[Math.floor(0 + Math.random() * (5 + 0 + 1))]}</span>
+                </Marker>
+            {/each}
+        {/if}
+
         <!-- if Suburb Data is Loaded -->
         {#if zoneData}
             <GeoJSON
@@ -552,7 +563,7 @@
                 </FillLayer>
                 <LineLayer
                     layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-                    paint={{ 'line-color': 'white', 'line-width': 3 }}
+                    paint={{ 'line-color': 'white', 'line-width': 5 }}
                     beforeLayerType="symbol"
                 />
             </GeoJSON>
@@ -563,7 +574,7 @@
 
             <Marker
                 lngLat={watchedMarker.lngLat}
-                class="grid h-12 w-12 place-items-center rounded-full
+                class="grid h-20 w-20 place-items-center rounded-full
                     border border-white-200
                     bg-green-400 text-white shadow-2xl focus:outline-2 focus:outline-white"
             >
@@ -582,7 +593,7 @@
                 <FillLayer
                     paint={{
                         'fill-color': hoverStateFilter('green', 'yellow'),
-                        'fill-opacity': 0.2,
+                        'fill-opacity': 0.1,
                     }}
                     beforeLayerType="symbol"
                     manageHoverState
@@ -601,9 +612,12 @@
                             </div>
                             <button
                                 class="btn btn-primary"
-                                on:click={closePopup}
+                                on:click={() => {
+                                    showPopup = false
+                                    countRepairs = countRepairs + 1
+                                }}
                             >
-                                Repair
+                                Repair Tower
                             </button>
                         </Popup>
                     {/if}
@@ -666,7 +680,7 @@
                     addTower(watchedMarker, 'label', 'name', Math.floor(minTowerRangeMetres + Math.random() * (maxTowerRangeMetres - minTowerRangeMetres + 1)) / 1000)
                 }}
             >
-                Drop Towers. Remaining : {limitTowers - countTowers}
+                Deploy Towers. Remaining : {limitTowers - countTowers}
             </button>
         </div>
 
@@ -676,6 +690,9 @@
                 disabled={disableRespawnEnemies}
                 on:click={() => {
                     updateRandomPoints(watchedMarker)
+                    if (currentTargets.features.length) {
+                        resourceTokens = resourceTokens + currentTargets.features.length
+                    }
                 }}
             >
                 Respawn Enemies. Current: {randomEnemies.length}
@@ -683,10 +700,12 @@
         </div>
 
         <div class="col-span-2 md:col-span-1 text-center">
-            <h1 class="font-bold">Information</h1>
-            <h2 class="font-bold">{countTargets} Enemies Engaged</h2>
             <h2 class="font-bold">{countTowers} of {limitTowers} Towers Deployed</h2>
+            <h2 class="font-bold">{countTargets} Enemies Engaged</h2>
             <h2 class="font-bold">{countLandmarks} Landmarks Nearby</h2>
+            <hr />
+            <h2 class="font-bold">{countRepairs} Towers Repaired </h2>
+            <h2 class="font-bold">{resourceTokens} Tokens Earned </h2>
         </div>
         <!-- This section demonstrates how to get automatically updated user location -->
         <div class="col-span-2 md:col-span-1 text-center">
