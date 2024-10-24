@@ -55,9 +55,8 @@
     let getPosition = false
     let success = false
     let error = ''
-    let debugInfo = ''
-
-    let hoveredLandmark = null
+    // let debugInfo = ''
+    // let hoveredLandmark = null
     let lastUpdateTime = 0
     const UPDATE_INTERVAL = 1 * 60 * 1000 // minutes in milliseconds
     const limitTowers = 5
@@ -428,102 +427,6 @@
 <!-- Everything after <script> will be HTML for rendering -->
 <!-- This section demonstrates how to get the current user location -->
 <div class="flex flex-col h-[calc(100vh-80px)] w-full">
-    <!-- grid, grid-cols-#, col-span-#, md:xxxx are some Tailwind utilities you can use for responsive design -->
-    <div class="grid grid-cols-4">
-        <div class="col-span-2 md:col-span-1 text-center">
-            <button
-                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-accent"
-                disabled={disableDropTower}
-                on:click={() => {
-                    addTower(watchedMarker, 'label', 'name', Math.floor(minTowerRangeMetres + Math.random() * (maxTowerRangeMetres - minTowerRangeMetres + 1)) / 1000)
-                }}
-            >
-                Drop Towers. Remaining : {limitTowers - countTowers}
-            </button>
-        </div>
-
-        <div class="col-span-2 md:col-span-1 text-center">
-            <button
-                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
-                disabled={disableRespawnEnemies}
-                on:click={() => {
-                    updateRandomPoints(watchedMarker)
-                }}
-            >
-                Respawn Enemies. Current: {randomEnemies.length}
-            </button>
-        </div>
-
-        <div class="col-span-2 md:col-span-1 text-center">
-            <h1 class="font-bold">{countTargets} Enemies Engaged</h1>
-            <h1 class="font-bold">{countTowers} of {limitTowers} Towers Deployed</h1>
-            <h1 class="font-bold">{countLandmarks} Landmarks Nearby</h1>
-        </div>
-        <div class="col-span-2 md:col-span-1 text-center">
-            <!-- <Geolocation> tag is used to access the Geolocation API -->
-            <!-- {getPosition} is equivalent to getPosition={getPosition} -->
-            <!-- bind:variable associates the parameter with the variable with the same name declared in <script> reactively -->
-            <!-- let:variable creates a variable for use from the component's return -->
-            <Geolocation
-                {getPosition}
-                options={options}
-                bind:position
-                bind:accuracy
-                bind:speed
-                bind:heading
-                bind:success
-                bind:error
-                let:loading
-                let:notSupported
-            >
-                <!-- If-else block syntax -->
-                {#if notSupported}
-                    Your browser does not support the Geolocation API.
-                {:else}
-                    {#if loading}
-                        Loading...
-                    {/if}
-                    {#if success}
-                        Success!
-                    {/if}
-                    {#if error}
-                        An error occurred. Error code {error.code}: {error.message}.
-                    {/if}
-                {/if}
-            </Geolocation>
-
-            <p class="break-words text-left">Initial Position {coords} | Accuracy: {accuracy}m</p>
-            {#if heading || speed}
-                <p class="break-words text-left">Heading: {heading} | Speed: {speed} </p>
-            {/if}
-        </div>
-
-        <!-- This section demonstrates how to get automatically updated user location -->
-        <div class="col-span-4 md:col-span-1 text-center">
-
-            <Geolocation
-                getPosition={watchPosition}
-                options={options}
-                watch={true}
-                bind:watchedPosition
-                on:position={(e) => {
-                    watchedPosition = e.detail
-                }}
-            />
-            {#if watchedPosition.coords}
-                <h1 class="break-words text-left">({watchedPosition.coords.longitude}, {watchedPosition.coords.latitude}) | Accuracy: {watchedPosition.coords.accuracy}m </h1>
-                {#if watchedPosition.coords.altitude}
-                    <h1 class="break-words text-left">Updated Altitude: {watchedPosition.coords.altitude} | Altitude Accuracy: {watchedPosition.coords.altitudeAccuracy}m </h1>
-                {/if}
-                {#if watchedPosition.coords.heading || watchedPosition.coords.speed}
-                    <h1 class="break-words text-left">Heading: {watchedPosition.coords.heading} | Speed: {watchedPosition.coords.speed}</h1>
-                    <!-- p class="break-words text-left">{JSON.stringify(watchedPosition)}</p -->
-                {/if}
-            {/if}
-
-        </div>
-
-    </div>
 
     <!-- This section demonstrates how to make a web map using MapLibre -->
     <!-- More basemap options -->
@@ -753,7 +656,106 @@
 
     </MapLibre>
 
-    <div class="absolute top-4 right-4 bg-white p-2 rounded shadow">
+    <!-- grid, grid-cols-#, col-span-#, md:xxxx are some Tailwind utilities you can use for responsive design -->
+    <div class="grid grid-cols-4">
+        <div class="col-span-2 md:col-span-1 text-center">
+            <button
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-accent"
+                disabled={disableDropTower}
+                on:click={() => {
+                    addTower(watchedMarker, 'label', 'name', Math.floor(minTowerRangeMetres + Math.random() * (maxTowerRangeMetres - minTowerRangeMetres + 1)) / 1000)
+                }}
+            >
+                Drop Towers. Remaining : {limitTowers - countTowers}
+            </button>
+        </div>
+
+        <div class="col-span-2 md:col-span-1 text-center">
+            <button
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
+                disabled={disableRespawnEnemies}
+                on:click={() => {
+                    updateRandomPoints(watchedMarker)
+                }}
+            >
+                Respawn Enemies. Current: {randomEnemies.length}
+            </button>
+        </div>
+
+        <div class="col-span-2 md:col-span-1 text-center">
+            <h1 class="font-bold">Information</h1>
+            <h2 class="font-bold">{countTargets} Enemies Engaged</h2>
+            <h2 class="font-bold">{countTowers} of {limitTowers} Towers Deployed</h2>
+            <h2 class="font-bold">{countLandmarks} Landmarks Nearby</h2>
+        </div>
+        <!-- This section demonstrates how to get automatically updated user location -->
+        <div class="col-span-2 md:col-span-1 text-center">
+
+            <Geolocation
+                getPosition={watchPosition}
+                options={options}
+                watch={true}
+                bind:watchedPosition
+                on:position={(e) => {
+                    watchedPosition = e.detail
+                }}
+            />
+            {#if watchedPosition.coords}
+                <h1 class="font-bold break-words text-left">Current Position: {watchedPosition.coords.longitude}, {watchedPosition.coords.latitude}</h1>
+                <h1 class="font-bold break-words text-left"> Accuracy: {watchedPosition.coords.accuracy}m </h1>
+                {#if watchedPosition.coords.altitude}
+                    <h1 class="font-bold break-words text-left">Updated Altitude: {watchedPosition.coords.altitude} | Altitude Accuracy: {watchedPosition.coords.altitudeAccuracy}m </h1>
+                {/if}
+                {#if watchedPosition.coords.heading || watchedPosition.coords.speed}
+                    <h1 class="font-bold break-words text-left">Heading: {watchedPosition.coords.heading} | Speed: {watchedPosition.coords.speed}</h1>
+                    <!-- p class="break-words text-left">{JSON.stringify(watchedPosition)}</p -->
+                {/if}
+            {/if}
+
+        </div>
+        <div class="col-span-4 md:col-span-1 bg-white text-center">
+            <!-- <Geolocation> tag is used to access the Geolocation API -->
+            <!-- {getPosition} is equivalent to getPosition={getPosition} -->
+            <!-- bind:variable associates the parameter with the variable with the same name declared in <script> reactively -->
+            <!-- let:variable creates a variable for use from the component's return -->
+            <Geolocation
+                {getPosition}
+                options={options}
+                bind:position
+                bind:accuracy
+                bind:speed
+                bind:heading
+                bind:success
+                bind:error
+                let:loading
+                let:notSupported
+            >
+                <!-- If-else block syntax -->
+                {#if notSupported}
+                    Your browser does not support the Geolocation API.
+                {:else}
+                    {#if loading}
+                        Loading...
+                    {/if}
+                    {#if success}
+                        Success!
+                    {/if}
+                    {#if error}
+                        An error occurred. Error code {error.code}: {error.message}.
+                    {/if}
+                {/if}
+            </Geolocation>
+
+            <p class="break-words text-left">Initial Position: {coords}</p>
+            <p class="break-words text-left">Accuracy: {accuracy}m</p>
+            {#if heading || speed}
+                <p class="break-words text-left">Heading: {heading} | Speed: {speed} </p>
+            {/if}
+        </div>
+
+    </div>
+
+    <!-- div class="absolute top-4 right-4 bg-white p-2 rounded shadow">
         Debug: {debugInfo}
     </div>
 
@@ -762,6 +764,7 @@
             {hoveredLandmark}
         </div>
     {/if}
+-->
 </div>
 
 <!-- Optionally, you can have a <style> tag for CSS at the end, but with TailwindCSS it is usually not necessary -->
