@@ -24,8 +24,8 @@
             </div>
 
             <div>
-                <h3 class="text-2xl font-semibold text-orange-300">🔍 Fit</h3>
-                <p class="text-gray-300">The Fit button zooms to the generated enemies.</p>
+                <h3 class="text-2xl font-semibold text-orange-300">🔍 Fly</h3>
+                <p class="text-gray-300">The Fly button zooms to the user within the extent of the generated enemies.</p>
             </div>
 
             <div>

@@ -73,7 +73,7 @@
     // buttons and events
     let disableTracking = true
     let disableMultipleGeolocation = false
-    let dsiableConjureTotem = true
+    let disableConjureTotem = true
     let disableRespawnEnemies = true
     const disableConjureExtraTotem = true
     // empty placeholders
@@ -146,7 +146,10 @@
      * @param name
      */
     function addTotem(t, label, name) {
-        if (limitTotems !== 0) {
+        if (countTotems >= limitTotems) {
+            disableConjureTotem = true
+        }
+        else {
             totems = [
                 ...totems,
                 {
@@ -157,9 +160,6 @@
                 },
             ]
             countTotems = countTotems + 1
-        }
-        if (countTotems === limitTotems) {
-            dsiableConjureTotem = true
         }
     }
 
@@ -419,9 +419,10 @@
         disabled={disableTracking}
         on:click={() => {
             watchPosition = true
-            dsiableConjureTotem = false
             disableTracking = true
             disableRespawnEnemies = false
+            if (countTotems >= limitTotems) { disableConjureTotem = true }
+            else { disableConjureTotem = false }
         }}
     >
         Track Location
@@ -454,7 +455,7 @@
                         bounds = getMapBounds(randomEnemies)
                     }}
                 >
-                    Fit
+                    Fly
                 </ControlButton>
             </ControlGroup>
         </Control>
@@ -669,7 +670,7 @@
         <div class="col-span-1 md:col-span-1 text-center">
             <button
                 class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-primary"
-                disabled={dsiableConjureTotem}
+                disabled={disableConjureTotem}
                 on:click={() => {
                     addTotem(watchedMarker, 'label', 'name', Math.floor(minTotemRangeMetres + Math.random() * (maxTotemRangeMetres - minTotemRangeMetres + 1)) / 1000)
                 }}
@@ -743,13 +744,18 @@
                 }}
             />
             {#if watchedPosition.coords}
-                <h1 class="font-bold text-left">Current Position: {watchedPosition.coords.longitude}, {watchedPosition.coords.latitude}</h1>
-                <h1 class="font-bold text-left"> Accuracy: {watchedPosition.coords.accuracy} m </h1>
+                <h1 class="font-bold text-left">Current Position: {Number.parseFloat(watchedPosition.coords.longitude)}, {Number.parseFloat(watchedPosition.coords.latitude)}</h1>
+                <h1 class="font-bold text-left"> Accuracy: {Number.parseFloat(watchedPosition.coords.accuracy).toFixed(4)} m </h1>
+                {#if Number.parseFloat(watchedPosition.coords.accuracy) > 100.0}
+                    <p class="break-words text-left text-red-500">Device may be using WIFI/5G Network</p>
+                {:else}
+                    <p class="break-words text-left text-green-500">Device using GNSS</p>
+                {/if}
                 {#if watchedPosition.coords.altitude}
-                    <h1 class="font-bold break-words text-left">Updated Altitude: {watchedPosition.coords.altitude} | Altitude Accuracy: {watchedPosition.coords.altitudeAccuracy} m </h1>
+                    <h1 class="font-bold break-words text-left">Updated Altitude: {watchedPosition.coords.altitude} | Altitude Accuracy: {Number.parseFloat(watchedPosition.coords.altitudeAccuracy).toFixed(4)} m </h1>
                 {/if}
                 {#if watchedPosition.coords.heading || watchedPosition.coords.speed}
-                    <h1 class="font-bold break-words text-left">Heading: {watchedPosition.coords.heading} | Speed: {watchedPosition.coords.speed}</h1>
+                    <h1 class="font-bold break-words text-left">Heading: {Number.parseFloat(watchedPosition.coords.heading).toFixed(4)} | Speed: {Number.parseFloat(watchedPosition.coords.speed).toFixed(4)}</h1>
                     <!-- p class="break-words text-left">{JSON.stringify(watchedPosition)}</p -->
                 {/if}
             {/if}
@@ -789,9 +795,14 @@
             </Geolocation>
 
             <p class="break-words text-left">Initial Position: {coords}</p>
-            <p class="break-words text-left">Accuracy: {accuracy}m</p>
+            <p class="break-words text-left">Accuracy: {Number.parseFloat(accuracy).toFixed(4)}m</p>
+            {#if Number.parseFloat(accuracy) > 100.0}
+                <p class="break-words text-left text-red-500">ONSTART: Device may be using WIFI/5G Network</p>
+            {:else}
+                <p class="break-words text-left text-green-500">ONSTART: Device using GNSS</p>
+            {/if}
             {#if heading || speed}
-                <p class="break-words text-left">Heading: {heading} | Speed: {speed} </p>
+                <p class="break-words text-left">Heading: {heading.toFixed(4)} | Speed: {speed.toFixed(4)} </p>
             {/if}
         </div>
 
