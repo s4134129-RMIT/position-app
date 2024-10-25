@@ -208,7 +208,7 @@
     // Geolocation API related
     const options = {
         enableHighAccuracy: true,
-        timeout: Infinity, // milliseconds
+        timeout: 10000, // milliseconds Infinity
         maximumAge: 500, // milliseconds, 0 disables cached positions
     }
 
