@@ -752,7 +752,7 @@
                     <p class="break-words text-left text-green-500">Device using GNSS</p>
                 {/if}
                 {#if watchedPosition.coords.altitude}
-                    <h1 class="font-bold break-words text-left">Updated Altitude: {watchedPosition.coords.altitude} | Altitude Accuracy: {Number.parseFloat(watchedPosition.coords.altitudeAccuracy).toFixed(4)} m </h1>
+                    <h1 class="font-bold break-words text-left">Updated Altitude: {Number.parseFloat(watchedPosition.coords.altitude).toFixed(4)} | Altitude Accuracy: {Number.parseFloat(watchedPosition.coords.altitudeAccuracy).toFixed(4)} m </h1>
                 {/if}
                 {#if watchedPosition.coords.heading || watchedPosition.coords.speed}
                     <h1 class="font-bold break-words text-left">Heading: {Number.parseFloat(watchedPosition.coords.heading).toFixed(4)} | Speed: {Number.parseFloat(watchedPosition.coords.speed).toFixed(4)}</h1>
