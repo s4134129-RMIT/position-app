@@ -20,14 +20,16 @@
     <div
         class="modal-box"
         on:click|stopPropagation>
-        <slot name="header" />
+        <slot
+            class="items-center justify-center"
+            name="header" />
         <hr />
         <slot />
-        <div class="modal-action">
+        <div class="modal-action items-center justify-center">
             <hr />
             <form method="dialog">
                 <button
-                    class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-primary"
+                    class="btn btn-md sm:btn-sm md:btn-md lg:btn-lg btn-primary"
                     on:click={() => dialog.close()}>Exorcise ⛧</button>
             </form>
         </div>

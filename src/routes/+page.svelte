@@ -28,17 +28,7 @@
      *
      * Note the format of markers
      */
-
-    let markers = [
-        {
-            lngLat: {
-                lng: 144.9638347277324,
-                lat: -37.80967960080751,
-            },
-            label: 'Marker 1',
-            name: 'This is a marker',
-        },
-    ]
+    let map
 
     let totems = [
         {
@@ -57,11 +47,13 @@
     let error = ''
     // let debugInfo = ''
     // let hoveredLandmark = null
-    let lastUpdateTime = 0
     const UPDATE_INTERVAL = 0.5 * 60 * 1000 // minutes in milliseconds
-    const limitTotems = 5
+    const PLAYER_RANGE = 0.5 // KM
+    let totem_spell_manacost = 500 // KM
+    let lastUpdateTime = 0
+    let limitTotems = 5
     let countTotems = 0
-    const playerRange = 0.5 // KM
+    let extraTotems = 0
     let countSummons = 0
     let manaPool = 0
 
@@ -75,7 +67,7 @@
     let disableMultipleGeolocation = false
     let disableConjureTotem = true
     let disableRespawnEnemies = true
-    const disableConjureExtraTotem = true
+    let disableConjureExtraTotem = true
     // empty placeholders
     let position = {}
     let coords = []
@@ -90,7 +82,7 @@
 
     let showPopup = true
     let showModal = false
-    const enemyIcons = ['👻', '🧛', '🧟', '👽', '👾', '👹']
+    const enemyIcons = ['👻', '🧛', '🧟', '🧌', '👾', '👹']
     const statusIcons = ['🔥', '❄️', '⚡', '☠️', '💤', '🩸']
 
     // Add this function to check for the closest landmark in range
@@ -99,7 +91,7 @@
             return
         }
 
-        const bufferRadius = playerRange
+        const bufferRadius = PLAYER_RANGE
         let minDistance = Infinity
         closestFamiliar = null
 
@@ -126,18 +118,6 @@
      *
      * Functions declared in <script> can only be used in this component
      */
-
-    // eslint-disable-next-line no-unused-vars, unused-imports/no-unused-vars
-    function addMarker(e, label, name) {
-        markers = [
-            ...markers,
-            {
-                lngLat: e.detail.lngLat,
-                label,
-                name,
-            },
-        ]
-    }
 
     /**
      * Adds a tower on the watchedMarker location, and generates a random attack range
@@ -205,6 +185,15 @@
         }
     }
 
+    function addExtraTotem() {
+        if (manaPool > totem_spell_manacost) {
+            disableConjureExtraTotem = false
+            limitTotems = limitTotems + 1
+            extraTotems = extraTotems + 1
+            manaPool = manaPool % totem_spell_manacost
+        }
+    }
+
     // Geolocation API related
     const options = {
         enableHighAccuracy: true,
@@ -232,16 +221,6 @@
         accuracy = position.coords.accuracy
         heading = position.coords.heading
         speed = position.coords.speed
-    /*
-        markers = [
-            ...markers,
-            {
-                lngLat: { lng: coords[0], lat: coords[1] },
-                label: 'Current',
-                name: 'Current Position',
-            },
-        ]
-    */
     }
 
     $: if (error) {
@@ -272,7 +251,7 @@
         familiarEntities.forEach((landmark) => {
             const pl = turf.point([landmark.geometry.coordinates[0], landmark.geometry.coordinates[1]])
             const loc = turf.point([watchedPosition.coords.longitude, watchedPosition.coords.latitude])
-            const pr = turf.buffer(loc, playerRange, { units: 'kilometers' })
+            const pr = turf.buffer(loc, PLAYER_RANGE, { units: 'kilometers' })
 
             if (turf.booleanPointInPolygon(pl, pr)) {
                 countFamiliars = countFamiliars + 1
@@ -387,46 +366,47 @@
     bind:error>
 
     <h1
-        class="font-bold text-center"
-        slot="header">
-        POSITION AND LOCATION TRACKING
+        class="text-4xl font-extrabold items-center justify-center text-orange-500 drop-shadow-lg mb-4"
+        slot="header">👻 GeoExorcist 👻</h1>
+    <h1 class="font-bold text-center text-purple-500">
+        GAME DEMONSTRATOR V1.0
     </h1>
     {#if error}
         <div class="text-center font-medium text-red-500">An error occurred. Error code {error.code}: {error.message}.</div>
         <div class="text-center font-medium text-red-500">Please Enable Location. Refresh Page if No Prompt from Device</div>
     {/if}
 
-    <!-- on:click declares what to do when the button is clicked -->
-    <!-- In the HTML part, {} tells the framework to treat what's inside as code (variables or functions), instead of as strings -->
-    <!-- () => {} is an arrow function, almost equivalent to function foo() {} -->
-    <h1 class="font-bold">Enable Position</h1>
-    <button
-        class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-accent"
-        disabled={disableMultipleGeolocation}
-        on:click={() => {
-            getPosition = true
-            disableTracking = false
-            disableMultipleGeolocation = true
-        }}
-    >
-        Enable Position
-    </button>
+    <div class="grid grid-cols-4">
+        <div class="col-span-2 md:col-span-2 text-center">
+            <button
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-accent"
+                disabled={disableMultipleGeolocation}
+                on:click={() => {
+                    getPosition = true
+                    disableTracking = false
+                    disableMultipleGeolocation = true
+                }}
+            >
+                Enable Position
+            </button>
+        </div>
 
-    <h1 class="font-bold">Enable Location Tracking</h1>
-
-    <button
-        class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
-        disabled={disableTracking}
-        on:click={() => {
-            watchPosition = true
-            disableTracking = true
-            disableRespawnEnemies = false
-            if (countTotems >= limitTotems) { disableConjureTotem = true }
-            else { disableConjureTotem = false }
-        }}
-    >
-        Track Location
-    </button>
+        <div class="col-span-2 md:col-span-2 text-center">
+            <button
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
+                disabled={disableTracking}
+                on:click={() => {
+                    watchPosition = true
+                    disableTracking = true
+                    disableRespawnEnemies = false
+                    if (countTotems >= limitTotems) { disableConjureTotem = true }
+                    else { disableConjureTotem = false }
+                }}
+            >
+                Track Location
+            </button>
+        </div>
+    </div>
 
 </StartModal>
 
@@ -445,17 +425,20 @@
         standardControls
         style="https://tiles.basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
         bind:bounds
-        zoom={12}
+        bind:this={map}
+        zoom={15}
     >
         <!-- Custom control buttons -->
-        <Control class="flex flex-col gap-y-2">
+        <Control class="flex flex-grow gap-y-2">
             <ControlGroup>
                 <ControlButton
                     on:click={() => {
-                        bounds = getMapBounds(randomEnemies)
+                        // bounds = getMapBounds(randomEnemies)
+                        showModal = true
+                        disableTracking = false
                     }}
                 >
-                    Fly
+                    Loc
                 </ControlButton>
             </ControlGroup>
         </Control>
@@ -582,7 +565,7 @@
 
             <GeoJSON
                 id="watchedMarkerBuffer"
-                data={getBuffer(watchedMarker.lngLat, playerRange)}
+                data={getBuffer(watchedMarker.lngLat, PLAYER_RANGE)}
             >
                 <FillLayer
                     paint={{
@@ -640,7 +623,7 @@
                 <Popup
                     openOn="click"
                     offset={[0, -10]}>
-                    <div class="text-lg">Enemy {i}</div>
+                    <div class="text-lg">Phantom {i}</div>
                 </Popup>
             </Marker>
         {/each}
@@ -669,6 +652,17 @@
     <div class="grid grid-cols-4">
         <div class="col-span-1 md:col-span-1 text-center">
             <button
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-neutral"
+                on:click={() => {
+                    bounds = getMapBounds(randomEnemies)
+                }}
+            >
+                Zoom to Enemies
+            </button>
+        </div>
+
+        <div class="col-span-1 md:col-span-1 text-center">
+            <button
                 class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-primary"
                 disabled={disableConjureTotem}
                 on:click={() => {
@@ -681,6 +675,22 @@
 
         <div class="col-span-1 md:col-span-1 text-center">
             <button
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-accent"
+                disabled={disableConjureExtraTotem}
+                on:click={() => {
+                    addTotem(watchedMarker, 'label', 'name', Math.floor(minTotemRangeMetres + Math.random() * (maxTotemRangeMetres - minTotemRangeMetres + 1)) / 500)
+                    totem_spell_manacost = totem_spell_manacost + 100
+                    if (countTotems >= limitTotems) {
+                        disableConjureExtraTotem = true
+                    }
+                }}
+            >
+                Totem Spell
+            </button>
+        </div>
+
+        <div class="col-span-1 md:col-span-1 text-center">
+            <button
                 class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
                 disabled={disableRespawnEnemies}
                 on:click={() => {
@@ -688,48 +698,26 @@
                     if (currentTargets.features.length) {
                         manaPool = manaPool + currentTargets.features.length
                     }
+                    addExtraTotem()
                 }}
             >
                 Respawn Enemies
             </button>
         </div>
 
-        <div class="col-span-1 md:col-span-1 text-center">
-            <button
-                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-accent"
-                disabled={disableConjureExtraTotem}
-                on:click={() => {
-                }}
-            >
-                Conjure Extra Totems
-            </button>
-        </div>
-
-        <div class="col-span-1 md:col-span-1 text-center">
-            <button
-                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-neutral"
-                on:click={() => {
-                    showModal = !showModal
-                    disableTracking = false
-                }}
-            >
-                Show Location Modal
-            </button>
-        </div>
-
         <div class="col-span-2 md:col-span-1 text-center">
             <h1 class="font-bold text-center">COUNTS</h1>
             <hr />
-            <h2 class="font-semibold text-orange-300">{countTotems} of {limitTotems} Totems Conjured</h2>
-            <h2 class="font-semibold text-purple-300">{countTargets} of {randomEnemies.length} Enemies Affected</h2>
-            <h2 class="font-semibold text-green-300">{countFamiliars} Familiars Nearby</h2>
+            <h2 class="font-semibold text-orange-400">{countTotems} of {limitTotems} Totems Conjured</h2>
+            <h2 class="font-semibold text-purple-500">{countTargets} of {randomEnemies.length} Enemies Affected</h2>
+            <h2 class="font-semibold text-green-500">{countFamiliars} Familiars Nearby</h2>
         </div>
         <div class="col-span-2 md:col-span-1 text-center">
             <h1 class="font-bold text-center">RESOURCES</h1>
             <hr />
-            <h2 class="font-semibold text-blue-300">{manaPool} Mana Recovered </h2>
-            <h2 class="font-semibold text-green-300">{countSummons} Familiars Summoned </h2>
-            <h2 class="font-semibold text-orange-300">0 Extra Totems to Conjure </h2>
+            <h2 class="font-semibold text-blue-500">{manaPool} Mana Recovered </h2>
+            <h2 class="font-semibold text-blue-500">{totem_spell_manacost} Mana to Activate Spell</h2>
+            <h2 class="font-semibold text-yellow-500">{countSummons} Familiars Summoned </h2>
         </div>
         <!-- This section demonstrates how to get automatically updated user location -->
         <div class="col-span-4 md:col-span-1 text-center">
