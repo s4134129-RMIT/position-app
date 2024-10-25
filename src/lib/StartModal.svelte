@@ -26,11 +26,9 @@
         <div class="modal-action">
             <hr />
             <form method="dialog">
-                <!-- svelte-ignore a11y-autofocus -->
                 <button
-                    class="btn btn-xs sm:btn-sm md:btn-md lg:btn-lg btn-primary"
-                    autofocus
-                    on:click={() => dialog.close()}>close modal</button>
+                    class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-primary"
+                    on:click={() => dialog.close()}>Exorcise ⛧</button>
             </form>
         </div>
     </div>

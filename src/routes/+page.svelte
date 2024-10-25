@@ -40,7 +40,7 @@
         },
     ]
 
-    let towers = [
+    let totems = [
         {
             lngLat: {
                 lng: 144.96383,
@@ -58,33 +58,35 @@
     // let debugInfo = ''
     // let hoveredLandmark = null
     let lastUpdateTime = 0
-    const UPDATE_INTERVAL = 1 * 60 * 1000 // minutes in milliseconds
-    const limitTowers = 5
-    let countTowers = 0
+    const UPDATE_INTERVAL = 0.5 * 60 * 1000 // minutes in milliseconds
+    const limitTotems = 5
+    let countTotems = 0
     const playerRange = 0.5 // KM
-    let countRepairs = 0
-    let resourceTokens = 0
+    let countSummons = 0
+    let manaPool = 0
 
     const minEnemies = 5
     const maxEnemies = 50
-    const minTowerRangeMetres = 10
-    const maxTowerRangeMetres = 25
+    const minTotemRangeMetres = 10
+    const maxTotemRangeMetres = 25
 
     // buttons and events
     let disableTracking = true
     let disableMultipleGeolocation = false
-    let disableDropTower = true
+    let dsiableConjureTotem = true
     let disableRespawnEnemies = true
+    const disableConjureExtraTotem = true
     // empty placeholders
     let position = {}
     let coords = []
-    let landmarkFeatures = []
+    let familiarEntities = []
     let zoneData
     let randomEnemies = []
+    let currentTargets = null
     // Extent of the map
-    let bounds = getMapBounds(towers)
-    let closestLandmark = null
-    let closestLandmarkFeature
+    let bounds = getMapBounds(totems)
+    let closestFamiliar = null
+    let closestFamiliarEntity
 
     let showPopup = true
     let showModal = false
@@ -92,16 +94,16 @@
     const statusIcons = ['🔥', '❄️', '⚡', '☠️', '💤', '🩸']
 
     // Add this function to check for the closest landmark in range
-    function checkLandmarksInRange(watchedMarkerLngLat) {
-        if (!watchedMarkerLngLat || !landmarkFeatures) {
+    function checkTotemsNearby(watchedMarkerLngLat) {
+        if (!watchedMarkerLngLat || !familiarEntities) {
             return
         }
 
         const bufferRadius = playerRange
         let minDistance = Infinity
-        closestLandmark = null
+        closestFamiliar = null
 
-        landmarkFeatures.forEach((feature) => {
+        familiarEntities.forEach((feature) => {
             const [lng, lat] = feature.geometry.coordinates
             const dx = lng - watchedMarkerLngLat.lng
             const dy = lat - watchedMarkerLngLat.lat
@@ -109,8 +111,8 @@
 
             if (distance <= bufferRadius && distance < minDistance) {
                 minDistance = distance
-                closestLandmarkFeature = feature
-                closestLandmark = {
+                closestFamiliarEntity = feature
+                closestFamiliar = {
                     feature_na: feature.properties.feature_na || 'Unnamed',
                     type: feature.properties.theme || 'No type',
                     subtype: feature.properties.sub_theme || 'No subtype',
@@ -143,21 +145,21 @@
      * @param label
      * @param name
      */
-    function addTower(t, label, name) {
-        if (limitTowers !== 0) {
-            towers = [
-                ...towers,
+    function addTotem(t, label, name) {
+        if (limitTotems !== 0) {
+            totems = [
+                ...totems,
                 {
                     lngLat: t.lngLat,
                     label,
                     name,
-                    attackRange: Math.floor(minTowerRangeMetres + Math.random() * (maxTowerRangeMetres + minTowerRangeMetres + 1)) / 1000,
+                    attackRange: Math.floor(minTotemRangeMetres + Math.random() * (maxTotemRangeMetres + minTotemRangeMetres + 1)) / 1000,
                 },
             ]
-            countTowers = countTowers + 1
+            countTotems = countTotems + 1
         }
-        if (countTowers === limitTowers) {
-            disableDropTower = true
+        if (countTotems === limitTotems) {
+            dsiableConjureTotem = true
         }
     }
 
@@ -198,6 +200,9 @@
 
     function updateRandomPoints(wm) {
         randomEnemies = generateRandomPoints(wm.lngLat.lat, wm.lngLat.lng)
+        if (currentTargets.features.length) {
+            manaPool = manaPool + currentTargets.features.length
+        }
     }
 
     // Geolocation API related
@@ -252,7 +257,7 @@
      * Trigger an action when getting close to a marker
      */
 
-    let countLandmarks = 0
+    let countFamiliars = 0
     $: if (watchedPosition.coords) { // this block is triggered when watchedPosition is updated
         // The tracked position in marker format
         watchedMarker = {
@@ -262,15 +267,15 @@
             },
         }
 
-        checkLandmarksInRange(watchedMarker.lngLat)
-        countLandmarks = 0
-        landmarkFeatures.forEach((landmark) => {
+        checkTotemsNearby(watchedMarker.lngLat)
+        countFamiliars = 0
+        familiarEntities.forEach((landmark) => {
             const pl = turf.point([landmark.geometry.coordinates[0], landmark.geometry.coordinates[1]])
             const loc = turf.point([watchedPosition.coords.longitude, watchedPosition.coords.latitude])
             const pr = turf.buffer(loc, playerRange, { units: 'kilometers' })
 
             if (turf.booleanPointInPolygon(pl, pr)) {
-                countLandmarks = countLandmarks + 1
+                countFamiliars = countFamiliars + 1
             }
         })
 
@@ -285,9 +290,8 @@
      * Point in Polygon
      */
     let countTargets = 0 // number of markers found
-    let currentTargets = null
 
-    $: if (watchedPosition.coords && towers.length && randomEnemies.length) {
+    $: if (watchedPosition.coords && totems.length && randomEnemies.length) {
         watchedMarker = {
             lngLat: {
                 lng: watchedPosition.coords.longitude,
@@ -296,21 +300,21 @@
         }
 
         const towerRanges = []
-        towers.forEach((tower) => {
+        totems.forEach((tower) => {
             const pt = turf.point([tower.lngLat.lng, tower.lngLat.lat])
             const bf = turf.buffer(pt, tower.attackRange, { units: 'kilometers' })
             towerRanges.push(bf)
         })
 
         const pa = []
-        const towerRangeFeature = turf.featureCollection(towerRanges)
-        const towerCoverage = turf.dissolve(towerRangeFeature)
+        const totemRangeFeature = turf.featureCollection(towerRanges)
+        const totemArea = turf.dissolve(totemRangeFeature)
 
         randomEnemies.forEach((enemy) => {
             pa.push([enemy.lngLat.lng, enemy.lngLat.lat])
         })
         const pe = turf.points(pa)
-        currentTargets = turf.pointsWithinPolygon(pe, towerCoverage)
+        currentTargets = turf.pointsWithinPolygon(pe, totemArea)
 
         if (currentTargets.features.length) {
             countTargets = currentTargets.features.length
@@ -345,8 +349,8 @@
         try {
             const landmarksResponse = await fetch('landmarks1011.geojson')
             const landmarksData = await landmarksResponse.json()
-            landmarkFeatures = landmarksData.features
-        // debugInfo = `Loaded ${landmarkFeatures.length} features`
+            familiarEntities = landmarksData.features
+        // debugInfo = `Loaded ${familiarEntities.length} features`
         }
         catch (error) {
             console.error('Error loading landmark GeoJSON data:', error)
@@ -366,6 +370,7 @@
         }
     })
 
+/*
     function handleMouseEnter(feature) {
         hoveredLandmark = feature.properties.feature_na || 'Unnamed Landmark'
     }
@@ -373,6 +378,7 @@
     function handleMouseLeave() {
         hoveredLandmark = null
     }
+        */
 </script>
 
 <StartModal
@@ -381,7 +387,7 @@
     bind:error>
 
     <h1
-        class="font-bold"
+        class="font-bold text-center"
         slot="header">
         POSITION AND LOCATION TRACKING
     </h1>
@@ -413,7 +419,7 @@
         disabled={disableTracking}
         on:click={() => {
             watchPosition = true
-            disableDropTower = false
+            dsiableConjureTotem = false
             disableTracking = true
             disableRespawnEnemies = false
         }}
@@ -452,37 +458,23 @@
                 </ControlButton>
             </ControlGroup>
         </Control>
-        <Control class="flex flex-col gap-y-2">
-            <ControlGroup>
-                <ControlButton
-                    on:click={() => {
-                        showModal = true
-                        disableTracking = false
-                    }}
-                >
-                    Modal
-                </ControlButton>
-            </ControlGroup>
-        </Control>
 
-        <!-- Towers -->
-        {#if towers.length > 0}
-            {#each towers as { lngLat, attackRange }, i (i)}
+        <!-- Totems -->
+        {#if totems.length > 0}
+            {#each totems as { lngLat, attackRange }, i (i)}
                 <Marker
                     {lngLat}
                     class="grid h-8 w-8 place-items-center rounded-full
                         border border-white-200
-                        bg-orange-900 text-white shadow-2xl focus:outline-2 focus:outline-white"
+                        bg-orange-500 text-white shadow-2xl focus:outline-2 focus:outline-white"
                 >
-                    <span>
-                        {i}
-                    </span>
+                    <span class="text-xl">⚚</span>
                     <Popup
                         openOn="click"
                         offset={[0, -10]}>
                         <div class="break-words text-lg font-bold">
-                            Tower {i} Initialized <br />
-                            KM Range: {attackRange * 1000}
+                            Totem {i} Conjured <br />
+                            Effect Range: {attackRange * 1000}
                         </div>
                     </Popup>
                 </Marker>
@@ -511,14 +503,15 @@
 
         <!-- Targets -->
 
-        <!-- Closest Landmark -->
-        {#if closestLandmarkFeature}
+        <!-- Closest Familiar Entity Landmark -->
+        {#if closestFamiliarEntity}
             <Marker
-                lngLat={closestLandmarkFeature.geometry.coordinates}
-                class="grid h-8 w-8 place-items-center rounded-full
+                lngLat={closestFamiliarEntity.geometry.coordinates}
+                class="flex items-center justify-center rounded-full w-8 h-8
                     border border-white-200
                     bg-yellow-500 text-white shadow-2xl focus:outline-4 focus:outline-white"
             >
+                <span class="items-center text-2xl">🗿</span>
             </Marker>
         {/if}
 
@@ -550,13 +543,13 @@
                     manageHoverState
                 >
                     <Popup
-                        openOn="hover"
+                        openOn="click"
                         let:data
                     >
                         {@const props = data?.properties}
                         {#if props}
                             <div class="flex flex-col gap-2">
-                                <p>{props.name}</p>
+                                <p>Enemy Zone {props.name}</p>
                             </div>
                         {/if}
                     </Popup>
@@ -574,15 +567,15 @@
 
             <Marker
                 lngLat={watchedMarker.lngLat}
-                class="grid h-20 w-20 place-items-center rounded-full
+                class="grid h-12 w-12 place-items-center rounded-full
                     border border-white-200
-                    bg-green-400 text-white shadow-2xl focus:outline-2 focus:outline-white"
+                    bg-gray-400 text-white shadow-2xl focus:outline-2 focus:outline-white"
             >
-                <span class="text-lg">🪖</span>
+                <span class="text-2xl">🪄</span>
                 <Popup
                     openOn="click"
                     offset={[0, -10]}>
-                    <div class="break-words text-lg text-green-900 font-bold">PLAYER</div>
+                    <div class="break-words text-lg text-orange-900 font-bold">Exorcist</div>
                 </Popup>
             </Marker>
 
@@ -592,39 +585,37 @@
             >
                 <FillLayer
                     paint={{
-                        'fill-color': hoverStateFilter('green', 'yellow'),
+                        'fill-color': hoverStateFilter('yellow', 'orange'),
                         'fill-opacity': 0.1,
                     }}
                     beforeLayerType="symbol"
                     manageHoverState
                 >
-                    {#if closestLandmark && showPopup}
+                    {#if closestFamiliar && showPopup}
                         <Popup
                             lngLat={watchedMarker.lngLat}
                             closeButton={false}
                             closeOnClick={false}
                         >
-                            <div class="text-lg font-bold">🔧Repairable Tower:</div>
+                            <div class="text-lg font-bold">✨ Summonable Familiar:</div>
                             <div class="mt-2">
-                                <div><strong>Name:</strong> {closestLandmark.feature_na}</div>
-                                <div><strong>Theme:</strong> {closestLandmark.theme}</div>
-                                <div><strong>Sub_theme:</strong> {closestLandmark.subtheme}</div>
+                                <div class="text-lg text-green-700"><strong>Name:</strong> {closestFamiliar.feature_na}</div>
                             </div>
                             <button
-                                class="btn btn-primary"
+                                class="btn btn-accent"
                                 on:click={() => {
                                     showPopup = false
-                                    countRepairs = countRepairs + 1
+                                    countSummons = countSummons + 1
                                 }}
                             >
-                                Repair Tower
+                                🕯️ Summon Familiar
                             </button>
                         </Popup>
                     {/if}
                 </FillLayer>
                 <LineLayer
                     layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-                    paint={{ 'line-color': 'green', 'line-width': 3 }}
+                    paint={{ 'line-color': 'white', 'line-width': 3 }}
                     beforeLayerType="symbol"
                 />
             </GeoJSON>
@@ -653,17 +644,20 @@
             </Marker>
         {/each}
 
-        {#each landmarkFeatures as feature (feature.id)}
+        <!--
+            on:mouseenter={() => handleMouseEnter(feature)}
+            on:mouseleave={handleMouseLeave}
+        -->
+        {#each familiarEntities as feature (feature.id)}
             <Marker
                 lngLat={feature.geometry.coordinates}
-                class="w-4 h-4 rounded-full bg-red-500 cursor-pointer"
-                on:mouseenter={() => handleMouseEnter(feature)}
-                on:mouseleave={handleMouseLeave}
+                class="w-6 h-6 rounded-full items-center justify-center bg-black cursor-pointer"
             >
+                <span class="text-lg">🗿</span>
                 <Popup
                     openOn="click"
                     offset={[0, -10]}>
-                    <div class="text-lg">Landmark {feature.id} </div>
+                    <div class="text-lg">Familiar {feature.id} </div>
                 </Popup>
             </Marker>
         {/each}
@@ -672,43 +666,72 @@
 
     <!-- grid, grid-cols-#, col-span-#, md:xxxx are some Tailwind utilities you can use for responsive design -->
     <div class="grid grid-cols-4">
-        <div class="col-span-2 md:col-span-1 text-center">
+        <div class="col-span-1 md:col-span-1 text-center">
             <button
-                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-accent"
-                disabled={disableDropTower}
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-primary"
+                disabled={dsiableConjureTotem}
                 on:click={() => {
-                    addTower(watchedMarker, 'label', 'name', Math.floor(minTowerRangeMetres + Math.random() * (maxTowerRangeMetres - minTowerRangeMetres + 1)) / 1000)
+                    addTotem(watchedMarker, 'label', 'name', Math.floor(minTotemRangeMetres + Math.random() * (maxTotemRangeMetres - minTotemRangeMetres + 1)) / 1000)
                 }}
             >
-                Deploy Towers. Remaining : {limitTowers - countTowers}
+                Conjure Totems
             </button>
         </div>
 
-        <div class="col-span-2 md:col-span-1 text-center">
+        <div class="col-span-1 md:col-span-1 text-center">
             <button
                 class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-secondary"
                 disabled={disableRespawnEnemies}
                 on:click={() => {
                     updateRandomPoints(watchedMarker)
                     if (currentTargets.features.length) {
-                        resourceTokens = resourceTokens + currentTargets.features.length
+                        manaPool = manaPool + currentTargets.features.length
                     }
                 }}
             >
-                Respawn Enemies. Current: {randomEnemies.length}
+                Respawn Enemies
+            </button>
+        </div>
+
+        <div class="col-span-1 md:col-span-1 text-center">
+            <button
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-accent"
+                disabled={disableConjureExtraTotem}
+                on:click={() => {
+                }}
+            >
+                Conjure Extra Totems
+            </button>
+        </div>
+
+        <div class="col-span-1 md:col-span-1 text-center">
+            <button
+                class="btn btn-s sm:btn-sm md:btn-md lg:btn-lg btn-neutral"
+                on:click={() => {
+                    showModal = !showModal
+                    disableTracking = false
+                }}
+            >
+                Show Location Modal
             </button>
         </div>
 
         <div class="col-span-2 md:col-span-1 text-center">
-            <h2 class="font-bold">{countTowers} of {limitTowers} Towers Deployed</h2>
-            <h2 class="font-bold">{countTargets} Enemies Engaged</h2>
-            <h2 class="font-bold">{countLandmarks} Landmarks Nearby</h2>
+            <h1 class="font-bold text-center">COUNTS</h1>
             <hr />
-            <h2 class="font-bold">{countRepairs} Towers Repaired </h2>
-            <h2 class="font-bold">{resourceTokens} Tokens Earned </h2>
+            <h2 class="font-semibold text-orange-300">{countTotems} of {limitTotems} Totems Conjured</h2>
+            <h2 class="font-semibold text-purple-300">{countTargets} of {randomEnemies.length} Enemies Affected</h2>
+            <h2 class="font-semibold text-green-300">{countFamiliars} Familiars Nearby</h2>
+        </div>
+        <div class="col-span-2 md:col-span-1 text-center">
+            <h1 class="font-bold text-center">RESOURCES</h1>
+            <hr />
+            <h2 class="font-semibold text-blue-300">{manaPool} Mana Recovered </h2>
+            <h2 class="font-semibold text-green-300">{countSummons} Familiars Summoned </h2>
+            <h2 class="font-semibold text-orange-300">0 Extra Totems to Conjure </h2>
         </div>
         <!-- This section demonstrates how to get automatically updated user location -->
-        <div class="col-span-2 md:col-span-1 text-center">
+        <div class="col-span-4 md:col-span-1 text-center">
 
             <Geolocation
                 getPosition={watchPosition}
@@ -720,10 +743,10 @@
                 }}
             />
             {#if watchedPosition.coords}
-                <h1 class="font-bold break-words text-left">Current Position: {watchedPosition.coords.longitude}, {watchedPosition.coords.latitude}</h1>
-                <h1 class="font-bold break-words text-left"> Accuracy: {watchedPosition.coords.accuracy}m </h1>
+                <h1 class="font-bold text-left">Current Position: {watchedPosition.coords.longitude}, {watchedPosition.coords.latitude}</h1>
+                <h1 class="font-bold text-left"> Accuracy: {watchedPosition.coords.accuracy} m </h1>
                 {#if watchedPosition.coords.altitude}
-                    <h1 class="font-bold break-words text-left">Updated Altitude: {watchedPosition.coords.altitude} | Altitude Accuracy: {watchedPosition.coords.altitudeAccuracy}m </h1>
+                    <h1 class="font-bold break-words text-left">Updated Altitude: {watchedPosition.coords.altitude} | Altitude Accuracy: {watchedPosition.coords.altitudeAccuracy} m </h1>
                 {/if}
                 {#if watchedPosition.coords.heading || watchedPosition.coords.speed}
                     <h1 class="font-bold break-words text-left">Heading: {watchedPosition.coords.heading} | Speed: {watchedPosition.coords.speed}</h1>
