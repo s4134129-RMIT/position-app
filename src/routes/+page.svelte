@@ -796,7 +796,7 @@
 
             <p class="break-words text-left">Initial Position: {coords}</p>
             <p class="break-words text-left">Accuracy: {Number.parseFloat(accuracy).toFixed(4)}m</p>
-            {#if Number.parseFloat(accuracy) > 100.0}
+            {#if Number.parseFloat(accuracy) > 25.0}
                 <p class="break-words text-left text-red-500">ONSTART: Device may be using WIFI/5G Network</p>
             {:else}
                 <p class="break-words text-left text-green-500">ONSTART: Device using GNSS</p>
