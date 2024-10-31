@@ -1,11 +1,20 @@
 <div class="min-h-screen flex flex-col items-center justify-center background bg-black text-white px-4">
+    <div class="flex justify-center items-center">
+        <div class="card shadow-lg p-4 bg-base-100 rounded-lg">
+            <img
+                src="icon.png"
+                alt="Icon"
+                class="w-32 h-32" />
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="text-center my-8">
-        <h1 class="text-4xl font-extrabold text-orange-500 drop-shadow-lg mb-4">👻 GeoExorcist: 👻</h1>
-        <h1 class="text-4xl font-extrabold text-purple-500 drop-shadow-lg mb-4"> Phantom Purge </h1>
+        <h1 class="text-4xl font-extrabold text-orange-500 drop-shadow-lg mb-4">GeoExorcist:</h1>
+        <h1 class="text-4xl font-extrabold text-purple-500 drop-shadow-lg mb-4">Phantom Purge</h1>
         <p class="text-xl text-gray-300 max-w-2xl mx-auto">
-            In a post-human world where everything is outrunned by Phantoms, you, one of the remaining Exorcists, have access to conjure special totems to fight against hordes of enemies.
-            Special locations allow you to summon Familiars, stationary allies that can also attack enemies in range as you travel and exorcise enemies!
+            In a post-human world where everything is outrunned by Phantoms, you, one of the remaining Exorcists, have mastered the art of conjuring special Totems to fight against hordes of enemies.
+            summon Familiars in landmark locations, stationary allies to aid you in the fight as you roam and survive!
         </p>
     </header>
     <!-- Game Demo Mechanics -->
@@ -20,7 +29,7 @@
 
             <div>
                 <h3 class="text-2xl font-semibold text-orange-300">🚶 Moving Around</h3>
-                <p class="text-gray-300">It is as simple as walking around with the device location enabled</p>
+                <p class="text-gray-300">Walkaround with the device location enabled to interact with the environment and drive the gameplay</p>
             </div>
 
             <div>

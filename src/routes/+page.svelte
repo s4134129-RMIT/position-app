@@ -365,9 +365,17 @@
     bind:showModal
     bind:error>
 
+    <div class="flex justify-center items-center">
+        <div class="card shadow-lg p-4 bg-base-100 rounded-lg">
+            <img
+                src="icon.png"
+                alt="Icon"
+                class="w-32 h-32" />
+        </div>
+    </div>
     <h1
         class="text-4xl font-extrabold items-center justify-center text-orange-500 drop-shadow-lg mb-4"
-        slot="header">👻 GeoExorcist 👻</h1>
+        slot="header">GeoExorcist</h1>
     <h1 class="font-bold text-center text-purple-500">
         GAME DEMONSTRATOR V1.0
     </h1>
